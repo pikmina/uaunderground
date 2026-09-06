@@ -1,9 +1,10 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
-import { initialData } from "./src/data/initialData";
-import { AppStateData, Character, RankingAttribute, Rumor, CharacterComment, AdminUser } from "./src/types";
+import { initialData } from "./src/data/initialData.ts";
+import type { AppStateData, Character, RankingAttribute, Rumor, CharacterComment, AdminUser } from "./src/types.ts";
 import {
   hashSecret,
   verifySecret,
@@ -13,7 +14,7 @@ import {
   checkRateLimit,
   recordFailedAttempt,
   resetRateLimit,
-} from "./server/security";
+} from "./server/security.ts";
 
 dotenv.config();
 
@@ -218,24 +219,29 @@ app.get("/api/state", (req: Request, res: Response) => {
 
 // Validar contraseña de acceso de la comunidad
 const handleCommunityAuth = (req: Request, res: Response) => {
-  const { password } = req.body;
-  if (!password) {
-    return res.status(400).json({ success: false, message: "Ingresa la contraseña de acceso." });
-  }
-
-  const stored = dbState.config.communityPassword || "";
-  const matches = verifyCommunityPassword(password, stored);
-  if (matches) {
-    if (!isHashed(stored)) {
-      dbState.config.communityPassword = hashSecret(password.trim().toLowerCase().replace(/[\s\-_!.,]+/g, ""));
-      saveDb(dbState);
+  try {
+    const { password } = req.body || {};
+    if (!password) {
+      return res.status(400).json({ success: false, message: "Ingresa la contraseña de acceso." });
     }
-    return res.json({ success: true, message: "¡Acceso concedido a UA Underground!" });
-  } else {
-    return res.status(401).json({
-      success: false,
-      message: "Contraseña incorrecta. Consulta el servidor de Discord o la pista del campus.",
-    });
+
+    const stored = dbState.config.communityPassword || "";
+    const matches = verifyCommunityPassword(password, stored);
+    if (matches) {
+      if (!isHashed(stored)) {
+        dbState.config.communityPassword = hashSecret(password.trim().toLowerCase().replace(/[\s\-_!.,]+/g, ""));
+        saveDb(dbState);
+      }
+      return res.json({ success: true, message: "¡Acceso concedido a UA Underground!" });
+    } else {
+      return res.status(401).json({
+        success: false,
+        message: "Contraseña incorrecta. Consulta el servidor de Discord o la pista del campus.",
+      });
+    }
+  } catch (err) {
+    console.error("Error en handleCommunityAuth:", err);
+    return res.status(500).json({ success: false, message: "Error interno al verificar la contraseña comunitaria." });
   }
 };
 app.post("/api/auth/community", handleCommunityAuth);
@@ -411,75 +417,101 @@ const authenticateSuperAdmin = (req: Request, res: Response, next: NextFunction)
 
 // Login de Administrador con protección anti fuerza bruta y token firmado
 const handleAdminLogin = (req: Request, res: Response) => {
-  const clientIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "global";
-  const rateLimit = checkRateLimit(`login_${clientIp}`, 5, 60000, 120000);
-  if (!rateLimit.allowed) {
-    return res.status(429).json({
-      error: `Demasiados intentos fallidos. Por seguridad, espera ${rateLimit.remainingSec} segundos antes de reintentar.`,
-    });
-  }
-
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "Ingresa correo y contraseña de administrador." });
-  }
-
-  const normalizedInput = email.trim().toLowerCase();
-  const trimmedPass = (password || "").trim();
-
-  const user = dbState.admins.find((a) => {
-    const emailMatch =
-      a.email.toLowerCase() === normalizedInput ||
-      a.username.toLowerCase() === normalizedInput ||
-      (normalizedInput === "saxagenia" && a.email.toLowerCase().includes("saxagenia"));
-
-    if (!emailMatch) return false;
-
-    // 1. Verificación segura con hash scrypt y timingSafeEqual
-    if (verifySecret(trimmedPass, a.password || "")) return true;
-
-    // 2. Fallback exclusivo para el SuperAdmin registrado inicial
-    if (
-      a.email.toLowerCase() === DEFAULT_SUPERADMIN_EMAIL &&
-      trimmedPass === DEFAULT_SUPERADMIN_PASSWORD
-    ) {
-      return true;
+  try {
+    const rawIp =
+      (req.headers["x-forwarded-for"] as string) ||
+      (req.headers["x-real-ip"] as string) ||
+      req.ip ||
+      req.socket?.remoteAddress ||
+      "global";
+    const clientIp = typeof rawIp === "string" ? rawIp.split(",")[0].trim() : "global";
+    const rateLimit = checkRateLimit(`login_${clientIp}`, 10, 60000, 120000);
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        error: `Demasiados intentos fallidos. Por seguridad, espera ${rateLimit.remainingSec} segundos antes de reintentar.`,
+      });
     }
 
-    return false;
-  });
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: "Ingresa correo y contraseña de administrador." });
+    }
 
-  if (!user) {
-    recordFailedAttempt(`login_${clientIp}`, 5, 120000);
-    return res.status(401).json({ error: "Credenciales de administrador incorrectas." });
-  }
+    const normalizedInput = email.trim().toLowerCase();
+    const trimmedPass = (password || "").trim();
 
-  // Éxito: limpiar registro de intentos fallidos
-  resetRateLimit(`login_${clientIp}`);
+    // Asegurar que el SuperAdmin exista en el estado en memoria
+    if (!dbState.admins.some((a) => a.email.toLowerCase() === DEFAULT_SUPERADMIN_EMAIL)) {
+      dbState.admins.unshift({
+        id: "admin-super",
+        email: DEFAULT_SUPERADMIN_EMAIL,
+        username: "SuperAdmin UA",
+        role: "superadmin",
+        password: hashSecret(DEFAULT_SUPERADMIN_PASSWORD),
+        createdAt: new Date().toISOString(),
+      });
+    }
 
-  // Asegurar que la contraseña quede guardada con hash criptográfico
-  if (!user.password || !isHashed(user.password)) {
-    user.password = hashSecret(trimmedPass);
-    saveDb(dbState);
-  }
+    const user = dbState.admins.find((a) => {
+      const emailMatch =
+        a.email.toLowerCase() === normalizedInput ||
+        a.username.toLowerCase() === normalizedInput ||
+        (normalizedInput === "saxagenia" && a.email.toLowerCase().includes("saxagenia"));
 
-  // Generar token de sesión firmado criptográficamente
-  const token = createSessionToken({
-    id: user.id,
-    email: user.email,
-    role: user.role,
-  });
+      if (!emailMatch) return false;
 
-  res.json({
-    success: true,
-    token,
-    user: {
+      // 1. Verificación segura con hash scrypt y timingSafeEqual
+      if (verifySecret(trimmedPass, a.password || "")) return true;
+
+      // 2. Fallback de variables de entorno para el SuperAdmin principal
+      if (
+        (a.email.toLowerCase() === DEFAULT_SUPERADMIN_EMAIL || a.role === "superadmin") &&
+        (trimmedPass === DEFAULT_SUPERADMIN_PASSWORD ||
+          (process.env.ADMIN_PASSWORD && trimmedPass === process.env.ADMIN_PASSWORD.trim()))
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (!user) {
+      recordFailedAttempt(`login_${clientIp}`, 10, 120000);
+      return res.status(401).json({ error: "Credenciales de administrador incorrectas." });
+    }
+
+    // Éxito: limpiar registro de intentos fallidos
+    resetRateLimit(`login_${clientIp}`);
+
+    // Asegurar que la contraseña quede guardada con hash criptográfico
+    if (!user.password || !isHashed(user.password)) {
+      user.password = hashSecret(trimmedPass);
+      saveDb(dbState);
+    }
+
+    // Generar token de sesión firmado criptográficamente
+    const token = createSessionToken({
       id: user.id,
       email: user.email,
-      username: user.username,
       role: user.role,
-    },
-  });
+    });
+
+    return res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error crítico en handleAdminLogin:", error);
+    return res.status(500).json({
+      error: "Error interno en el servidor al procesar el acceso de administrador. Por favor intenta de nuevo.",
+    });
+  }
 };
 app.post("/api/admin/login", handleAdminLogin);
 app.post("/admin/login", handleAdminLogin);
@@ -743,6 +775,16 @@ app.get("/api/admin/audit", authenticateAdmin, (req: Request, res: Response) => 
     rumors: dbState.rumors,
     comments: dbState.comments,
   });
+});
+
+// Manejador global de errores para asegurar respuestas JSON consistentes en Vercel
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error("Error global no interceptado en API:", err);
+  if (!res.headersSent) {
+    res.status(500).json({
+      error: err?.message || "Error interno del servidor.",
+    });
+  }
 });
 
 // ==================== VITE MIDDLEWARE (DEV & PROD) ====================

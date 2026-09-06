@@ -1,4 +1,4 @@
-import { AppStateData } from "../types";
+import type { AppStateData } from "../types.ts";
 
 export const initialData: AppStateData = {
   config: {
