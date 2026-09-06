@@ -2,5 +2,7 @@
   "name": "UA Underground",
   "description": "Sitio clandestino de chismes, rankings de personajes y comentarios para foro de rol de My Hero Academia.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -11,23 +11,40 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
-const DATA_DIR = path.join(process.cwd(), "data");
+const IS_VERCEL = Boolean(process.env.VERCEL);
+const DATA_DIR = IS_VERCEL ? path.join("/tmp", "data") : path.join(process.cwd(), "data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
+const BUNDLED_DB_FILE = path.join(process.cwd(), "data", "db.json");
 
 const DEFAULT_SUPERADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@ua-underground.org").toLowerCase().trim();
 const DEFAULT_SUPERADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin_secure_key";
 const DEFAULT_COMMUNITY_PASSWORD = process.env.COMMUNITY_PASSWORD || "plusultra";
 
-// Asegurar directorio de datos
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Asegurar directorio de datos de forma segura
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn("Aviso al crear directorio DATA_DIR:", e);
 }
 
 // Cargar o inicializar base de datos
 function loadDb(): AppStateData {
   try {
-    if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, "utf-8");
+    // Si estamos en Vercel y aún no existe en /tmp, intentar copiar el bundled si existe
+    if (IS_VERCEL && !fs.existsSync(DB_FILE) && fs.existsSync(BUNDLED_DB_FILE)) {
+      try {
+        const bundledRaw = fs.readFileSync(BUNDLED_DB_FILE, "utf-8");
+        fs.writeFileSync(DB_FILE, bundledRaw, "utf-8");
+      } catch {
+        // Continuar si no se pudo copiar
+      }
+    }
+
+    const targetFile = fs.existsSync(DB_FILE) ? DB_FILE : (fs.existsSync(BUNDLED_DB_FILE) ? BUNDLED_DB_FILE : null);
+    if (targetFile) {
+      const raw = fs.readFileSync(targetFile, "utf-8");
       const parsed: AppStateData = JSON.parse(raw);
 
       // 1. Asegurar que la contraseña comunitaria esté cifrada
@@ -96,6 +113,9 @@ function loadDb(): AppStateData {
 
 function saveDb(data: AppStateData) {
   try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
     console.error("Error writing db.json", err);
@@ -106,6 +126,22 @@ let dbState = loadDb();
 
 // Middleware
 app.use(express.json());
+
+// Normalizador de rutas para Vercel Serverless Functions y proxies
+app.use((req, res, next) => {
+  if (!req.url.startsWith("/api") && !req.url.startsWith("/@") && !req.url.startsWith("/src")) {
+    const apiPaths = ["/state", "/auth", "/characters", "/rumors", "/comments", "/admin"];
+    if (apiPaths.some((p) => req.url.startsWith(p))) {
+      req.url = `/api${req.url}`;
+    }
+  }
+  next();
+});
+
+// Endpoint de verificación de estado de la API
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", app: "UA Underground", vercel: IS_VERCEL });
+});
 
 // Helper: Verificar si texto contiene palabras prohibidas
 function checkProhibited(text: string, prohibitedList: string[]): string | null {
@@ -616,4 +652,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Si corre en Vercel Serverless, no iniciar servidor HTTP con listen()
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
