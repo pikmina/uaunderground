@@ -6,4 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
-data/
+# Ignore runtime database folder, but NEVER ignore source data
+/data/
+!src/data/
