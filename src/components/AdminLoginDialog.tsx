@@ -80,22 +80,22 @@ export const AdminLoginDialog: React.FC<AdminLoginDialogProps> = ({
 
           <div className="space-y-1.5">
             <Label htmlFor="admin-email" className="text-xs uppercase font-black text-zinc-700">
-              Correo Electrónico
+              Usuario o Correo Electrónico
             </Label>
             <div className="relative">
               <Input
                 id="admin-email"
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="ejemplo@gmail.com"
+                placeholder="correo@ejemplo.com o usuario"
                 className="pl-9 text-sm font-semibold border-2 border-black"
                 required
               />
               <Mail className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
             </div>
             <p className="text-[11px] text-zinc-500 font-medium">
-              Acceso restringido para el staff autorizado de moderación y administración.
+              Acceso restringido únicamente para personal autorizado del tablón.
             </p>
           </div>
 

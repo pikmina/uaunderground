@@ -41,7 +41,19 @@ export default function App() {
     const saved = sessionStorage.getItem("ua_admin");
     return saved ? JSON.parse(saved) : null;
   });
+  const [adminToken, setAdminToken] = useState<string | null>(() => {
+    return sessionStorage.getItem("ua_admin_token");
+  });
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+
+  const getAdminHeaders = (extraHeaders: Record<string, string> = {}) => {
+    const token = adminToken || sessionStorage.getItem("ua_admin_token") || "";
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...extraHeaders,
+    };
+  };
 
   // App core state
   const [config, setConfig] = useState<SystemConfig>({
@@ -95,11 +107,13 @@ export default function App() {
     }
   };
 
-  const fetchAdminData = async () => {
+  const fetchAdminData = async (tokenOverride?: string) => {
     try {
+      const token = tokenOverride || adminToken || sessionStorage.getItem("ua_admin_token") || "";
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       const [usersRes, confRes] = await Promise.all([
-        fetch("/api/admin/users"),
-        fetch("/api/admin/config-full"),
+        fetch("/api/admin/users", { headers }),
+        fetch("/api/admin/config-full", { headers }),
       ]);
       if (usersRes.ok) {
         const users = await usersRes.json();
@@ -132,15 +146,20 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: pwd }),
       });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Response was not JSON (e.g. 404 HTML)
+      }
       if (res.ok && data.success) {
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
         return { success: true };
       }
-      return { success: false, message: data.message || "Contraseña inválida" };
+      return { success: false, message: data.message || `Contraseña no válida (${res.status})` };
     } catch {
-      return { success: false, message: "Error al verificar la contraseña." };
+      return { success: false, message: "Error al verificar la contraseña con el servidor." };
     }
   };
 
@@ -152,17 +171,26 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password: pass }),
       });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Response was not JSON
+      }
       if (res.ok && data.success) {
         setAdminUser(data.user);
+        setAdminToken(data.token);
         sessionStorage.setItem("ua_admin", JSON.stringify(data.user));
+        if (data.token) {
+          sessionStorage.setItem("ua_admin_token", data.token);
+        }
         // Auto-unlock site as well
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
-        fetchAdminData();
+        fetchAdminData(data.token);
         return { success: true };
       }
-      return { success: false, error: data.error || "Credenciales incorrectas" };
+      return { success: false, error: data.error || `Credenciales incorrectas (${res.status})` };
     } catch {
       return { success: false, error: "Error en el servidor de autenticación" };
     }
@@ -170,7 +198,9 @@ export default function App() {
 
   const handleAdminLogout = () => {
     setAdminUser(null);
+    setAdminToken(null);
     sessionStorage.removeItem("ua_admin");
+    sessionStorage.removeItem("ua_admin_token");
     if (activeTab === "admin") setActiveTab("characters");
   };
 
@@ -285,7 +315,7 @@ export default function App() {
     try {
       const res = await fetch("/api/admin/config", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAdminHeaders(),
         body: JSON.stringify(newConfig),
       });
       const data = await res.json();
@@ -303,7 +333,7 @@ export default function App() {
     try {
       const res = await fetch("/api/admin/characters", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAdminHeaders(),
         body: JSON.stringify(char),
       });
       if (res.ok) {
@@ -321,7 +351,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/admin/characters/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAdminHeaders(),
         body: JSON.stringify(char),
       });
       if (res.ok) {
@@ -340,6 +370,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/admin/characters/${id}/duplicate`, {
         method: "POST",
+        headers: getAdminHeaders(),
       });
       if (res.ok) {
         const duplicated = await res.json();
@@ -356,6 +387,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/admin/characters/${id}`, {
         method: "DELETE",
+        headers: getAdminHeaders(),
       });
       if (res.ok) {
         setCharacters((prev) => prev.filter((c) => c.id !== id));
@@ -373,7 +405,7 @@ export default function App() {
     try {
       const res = await fetch("/api/admin/attributes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAdminHeaders(),
         body: JSON.stringify(attr),
       });
       if (res.ok) {
@@ -391,7 +423,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/admin/attributes/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAdminHeaders(),
         body: JSON.stringify(attr),
       });
       if (res.ok) {
@@ -409,6 +441,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/admin/attributes/${id}/duplicate`, {
         method: "POST",
+        headers: getAdminHeaders(),
       });
       if (res.ok) {
         const duplicated = await res.json();
@@ -425,6 +458,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/admin/attributes/${id}`, {
         method: "DELETE",
+        headers: getAdminHeaders(),
       });
       if (res.ok) {
         setAttributes((prev) => prev.filter((a) => a.id !== id));
@@ -445,7 +479,7 @@ export default function App() {
     try {
       const res = await fetch("/api/admin/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAdminHeaders(),
         body: JSON.stringify(admin),
       });
       if (res.ok) {
@@ -463,6 +497,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "DELETE",
+        headers: getAdminHeaders(),
       });
       if (res.ok) {
         setAdminsList((prev) => prev.filter((a) => a.id !== id));
@@ -478,6 +513,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/admin/rumors/${id}`, {
         method: "DELETE",
+        headers: getAdminHeaders(),
       });
       if (res.ok) {
         setRumors((prev) => prev.filter((r) => r.id !== id));
@@ -493,6 +529,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/admin/comments/${id}`, {
         method: "DELETE",
+        headers: getAdminHeaders(),
       });
       if (res.ok) {
         setComments((prev) => prev.filter((c) => c.id !== id));

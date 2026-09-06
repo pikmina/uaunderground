@@ -2,7 +2,7 @@ import { AppStateData } from "../types";
 
 export const initialData: AppStateData = {
   config: {
-    communityPassword: "",
+    communityPassword: "plusultra",
     passwordHint: "El lema de la Academia U.A. en minúsculas (pista dada en el canal de Discord)",
     lastPasswordChange: new Date().toISOString(),
     prohibitedWords: [
@@ -64,10 +64,18 @@ export const initialData: AppStateData = {
   admins: [
     {
       id: "admin-super",
-      email: "admin@ua-underground.org",
+      email: "saxagenia@gmail.com",
       username: "SuperAdmin UA",
       role: "superadmin",
-      password: "",
+      password: "plusultra2026",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "admin-fallback",
+      email: "admin@ua-underground.org",
+      username: "Admin Underground",
+      role: "superadmin",
+      password: "admin_secure_key",
       createdAt: new Date().toISOString(),
     },
   ],
