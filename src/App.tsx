@@ -891,7 +891,6 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         adminUser={adminUser}
-        onOpenAdminLogin={() => setShowAdminLogin(true)}
         onAdminLogout={handleAdminLogout}
         siteNotice={config.siteNotice}
         onLockSite={handleLockSite}
