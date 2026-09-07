@@ -8,6 +8,25 @@ import {
   SystemConfig,
   EmojiReactionKey,
 } from "./types";
+import {
+  fetchFirestoreState,
+  verifyCommunityPasswordFirestore,
+  adminLoginFirestore,
+  reactToRumorFirestore,
+  reactToCommentFirestore,
+  addRumorFirestore,
+  addCommentFirestore,
+  saveCharacterFirestore,
+  deleteCharacterFirestore,
+  saveAttributeFirestore,
+  deleteAttributeFirestore,
+  updateConfigFirestore,
+  fetchAdminsFirestore,
+  saveAdminFirestore,
+  deleteAdminFirestore,
+  deleteRumorFirestore,
+  deleteCommentFirestore,
+} from "./firebase";
 import { TopNavbar } from "./components/TopNavbar";
 import { Gatekeeper } from "./components/Gatekeeper";
 import { CharacterCard } from "./components/CharacterCard";
@@ -82,10 +101,27 @@ export default function App() {
   const [createRumorOpen, setCreateRumorOpen] = useState(false);
   const [createRumorTargetChar, setCreateRumorTargetChar] = useState<Character | null>(null);
 
-  // Fetch state from server
+  // Fetch state from server / Firestore
   const fetchState = async () => {
     try {
       setLoading(true);
+      // 1. Try Firebase Firestore (Cloud Database) first
+      try {
+        const fbData = await fetchFirestoreState();
+        if (fbData.characters && fbData.characters.length > 0) {
+          if (fbData.config) setConfig((prev) => ({ ...prev, ...fbData.config }));
+          if (fbData.attributes) setAttributes(fbData.attributes);
+          if (fbData.characters) setCharacters(fbData.characters);
+          if (fbData.rumors) setRumors(fbData.rumors);
+          if (fbData.comments) setComments(fbData.comments);
+          if (adminUser) fetchAdminData();
+          return;
+        }
+      } catch (fbErr) {
+        console.warn("Firestore fetch error, attempting API fallback:", fbErr);
+      }
+
+      // 2. Fallback to API endpoint
       const res = await fetch("/api/state");
       if (res.ok) {
         const data = await res.json();
@@ -109,17 +145,28 @@ export default function App() {
 
   const fetchAdminData = async (tokenOverride?: string) => {
     try {
+      // 1. Fetch from Firestore
+      try {
+        const fbAdmins = await fetchAdminsFirestore();
+        if (fbAdmins && fbAdmins.length > 0) {
+          setAdminsList(fbAdmins);
+        }
+      } catch (e) {
+        console.warn("Firestore admins fetch error:", e);
+      }
+
+      // 2. Also try API if running
       const token = tokenOverride || adminToken || sessionStorage.getItem("ua_admin_token") || "";
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       const [usersRes, confRes] = await Promise.all([
-        fetch("/api/admin/users", { headers }),
-        fetch("/api/admin/config-full", { headers }),
+        fetch("/api/admin/users", { headers }).catch(() => null),
+        fetch("/api/admin/config-full", { headers }).catch(() => null),
       ]);
-      if (usersRes.ok) {
+      if (usersRes && usersRes.ok) {
         const users = await usersRes.json();
         setAdminsList(users);
       }
-      if (confRes.ok) {
+      if (confRes && confRes.ok) {
         const fullConf = await confRes.json();
         if (fullConf.config) setConfig(fullConf.config);
       }
@@ -138,9 +185,24 @@ export default function App() {
     }
   }, [adminUser]);
 
-  // Unlock site with community password
+  // Unlock site with community password (Firebase + Server)
   const handleUnlock = async (pwd: string) => {
     try {
+      // 1. Primary: Verify directly via Firestore (100% Vercel compatible)
+      const fbResult = await verifyCommunityPasswordFirestore(pwd);
+      if (fbResult.success) {
+        setIsUnlocked(true);
+        sessionStorage.setItem("ua_unlocked", "true");
+        // Notify API in background if online
+        fetch("/api/auth/community", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: pwd }),
+        }).catch(() => {});
+        return { success: true };
+      }
+
+      // 2. Secondary: Fallback to API check
       const res = await fetch("/api/auth/community", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -149,23 +211,41 @@ export default function App() {
       let data: any = {};
       try {
         data = await res.json();
-      } catch {
-        // Response was not JSON (e.g. 404 HTML)
-      }
+      } catch {}
       if (res.ok && data.success) {
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
         return { success: true };
       }
-      return { success: false, message: data.message || `Contraseña no válida (${res.status})` };
+      return { success: false, message: fbResult.message || data.message || `Contraseña no válida (${res.status})` };
     } catch {
-      return { success: false, message: "Error al verificar la contraseña con el servidor." };
+      return { success: false, message: "Error al verificar la contraseña." };
     }
   };
 
-  // Admin login
+  // Admin login (Firebase + Server)
   const handleAdminLogin = async (email: string, pass: string) => {
     try {
+      // 1. Primary: Direct Firestore admin login (100% Vercel compatible)
+      const fbAuth = await adminLoginFirestore(email, pass);
+      if (fbAuth.success && fbAuth.user) {
+        setAdminUser(fbAuth.user);
+        setAdminToken(fbAuth.token || `fb_token_${Date.now()}`);
+        sessionStorage.setItem("ua_admin", JSON.stringify(fbAuth.user));
+        sessionStorage.setItem("ua_admin_token", fbAuth.token || `fb_token_${Date.now()}`);
+        setIsUnlocked(true);
+        sessionStorage.setItem("ua_unlocked", "true");
+        fetchAdminData(fbAuth.token);
+        // Ping API in background
+        fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password: pass }),
+        }).catch(() => {});
+        return { success: true };
+      }
+
+      // 2. Secondary: Fallback to API login
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,9 +254,7 @@ export default function App() {
       let data: any = {};
       try {
         data = await res.json();
-      } catch {
-        // Response was not JSON
-      }
+      } catch {}
       if (res.ok && data.success) {
         setAdminUser(data.user);
         setAdminToken(data.token);
@@ -184,13 +262,12 @@ export default function App() {
         if (data.token) {
           sessionStorage.setItem("ua_admin_token", data.token);
         }
-        // Auto-unlock site as well
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
         fetchAdminData(data.token);
         return { success: true };
       }
-      return { success: false, error: data.error || `Credenciales incorrectas (${res.status})` };
+      return { success: false, error: fbAuth.error || data.error || `Credenciales incorrectas (${res.status})` };
     } catch {
       return { success: false, error: "Error en el servidor de autenticación" };
     }
@@ -226,11 +303,14 @@ export default function App() {
             : r
         )
       );
-      await fetch(`/api/rumors/${rumorId}/react`, {
+      // Persist to Cloud Firestore
+      reactToRumorFirestore(rumorId, emoji).catch(console.error);
+      // Sync with API
+      fetch(`/api/rumors/${rumorId}/react`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emoji }),
-      });
+      }).catch(() => {});
     } catch (err) {
       console.error("Error reacting to rumor:", err);
     }
@@ -252,11 +332,14 @@ export default function App() {
             : c
         )
       );
-      await fetch(`/api/comments/${commId}/react`, {
+      // Persist to Cloud Firestore
+      reactToCommentFirestore(commId, emoji).catch(console.error);
+      // Sync with API
+      fetch(`/api/comments/${commId}/react`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emoji }),
-      });
+      }).catch(() => {});
     } catch (err) {
       console.error("Error reacting to comment:", err);
     }
@@ -270,19 +353,33 @@ export default function App() {
     content: string
   ) => {
     try {
-      const res = await fetch("/api/rumors", {
+      const targetChar = characters.find((c) => c.id === characterId);
+      const newRumor: Rumor = {
+        id: `rumor-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        characterId: characterId || undefined,
+        characterName: targetChar?.name || undefined,
+        authorName: authorName.trim() || "Anónimo UA",
+        authorEmail: authorEmail.trim(),
+        content: content.trim(),
+        reactions: { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 },
+        timestamp: new Date().toISOString(),
+      };
+
+      // 1. Save directly to Cloud Firestore
+      await addRumorFirestore(newRumor);
+      setRumors((prev) => [newRumor, ...prev]);
+
+      // 2. Sync to API in background
+      fetch("/api/rumors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ characterId, authorName, authorEmail, content }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || "No se pudo publicar." };
-      }
-      setRumors((prev) => [data, ...prev]);
+      }).catch(() => {});
+
       return { success: true };
-    } catch {
-      return { success: false, error: "Error de red al publicar rumor." };
+    } catch (err: any) {
+      console.error("Error posting rumor:", err);
+      return { success: false, error: err?.message || "No se pudo publicar el rumor." };
     }
   };
 
@@ -294,36 +391,45 @@ export default function App() {
     content: string
   ) => {
     try {
-      const res = await fetch("/api/comments", {
+      const newComment: CharacterComment = {
+        id: `comm-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        characterId,
+        authorName: authorName.trim() || "Estudiante Anónimo",
+        authorEmail: authorEmail.trim(),
+        content: content.trim(),
+        reactions: { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 },
+        timestamp: new Date().toISOString(),
+      };
+
+      // 1. Save directly to Cloud Firestore
+      await addCommentFirestore(newComment);
+      setComments((prev) => [newComment, ...prev]);
+
+      // 2. Sync to API in background
+      fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ characterId, authorName, authorEmail, content }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || "No se pudo comentar." };
-      }
-      setComments((prev) => [data, ...prev]);
+      }).catch(() => {});
+
       return { success: true };
-    } catch {
-      return { success: false, error: "Error de red al comentar." };
+    } catch (err: any) {
+      console.error("Error posting comment:", err);
+      return { success: false, error: err?.message || "No se pudo publicar el comentario." };
     }
   };
 
-  // Admin Actions
+  // Admin Actions with Cloud Firestore Persistence
   const handleUpdateConfig = async (newConfig: Partial<SystemConfig>) => {
     try {
-      const res = await fetch("/api/admin/config", {
+      await updateConfigFirestore(newConfig);
+      setConfig((prev) => ({ ...prev, ...newConfig }));
+      fetch("/api/admin/config", {
         method: "POST",
         headers: getAdminHeaders(),
         body: JSON.stringify(newConfig),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setConfig((prev) => ({ ...prev, ...data.config }));
-        return true;
-      }
-      return false;
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -331,17 +437,27 @@ export default function App() {
 
   const handleCreateCharacter = async (char: Partial<Character>) => {
     try {
-      const res = await fetch("/api/admin/characters", {
+      const newChar: Character = {
+        id: char.id || `char-${Date.now()}`,
+        name: char.name || "Nuevo Personaje",
+        alias: char.alias || "",
+        age: char.age || 16,
+        classCourse: char.classCourse || "1-A",
+        quirk: char.quirk || "",
+        avatarUrl: char.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+        bio: char.bio || "",
+        rankings: char.rankings || {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await saveCharacterFirestore(newChar);
+      setCharacters((prev) => [newChar, ...prev]);
+      fetch("/api/admin/characters", {
         method: "POST",
         headers: getAdminHeaders(),
-        body: JSON.stringify(char),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        setCharacters((prev) => [created, ...prev]);
-        return true;
-      }
-      return false;
+        body: JSON.stringify(newChar),
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -349,18 +465,22 @@ export default function App() {
 
   const handleUpdateCharacter = async (id: string, char: Partial<Character>) => {
     try {
-      const res = await fetch(`/api/admin/characters/${id}`, {
+      const existing = characters.find((c) => c.id === id);
+      if (!existing) return false;
+      const updated: Character = {
+        ...existing,
+        ...char,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveCharacterFirestore(updated);
+      setCharacters((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      if (selectedCharacter?.id === id) setSelectedCharacter(updated);
+      fetch(`/api/admin/characters/${id}`, {
         method: "PUT",
         headers: getAdminHeaders(),
         body: JSON.stringify(char),
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setCharacters((prev) => prev.map((c) => (c.id === id ? updated : c)));
-        if (selectedCharacter?.id === id) setSelectedCharacter(updated);
-        return true;
-      }
-      return false;
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -368,16 +488,18 @@ export default function App() {
 
   const handleDuplicateCharacter = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/characters/${id}/duplicate`, {
-        method: "POST",
-        headers: getAdminHeaders(),
-      });
-      if (res.ok) {
-        const duplicated = await res.json();
-        setCharacters((prev) => [duplicated, ...prev]);
-        return true;
-      }
-      return false;
+      const char = characters.find((c) => c.id === id);
+      if (!char) return false;
+      const duplicated: Character = {
+        ...char,
+        id: `char-${Date.now()}`,
+        name: `${char.name} (Copia)`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await saveCharacterFirestore(duplicated);
+      setCharacters((prev) => [duplicated, ...prev]);
+      return true;
     } catch {
       return false;
     }
@@ -385,17 +507,15 @@ export default function App() {
 
   const handleDeleteCharacter = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/characters/${id}`, {
+      await deleteCharacterFirestore(id);
+      setCharacters((prev) => prev.filter((c) => c.id !== id));
+      setComments((prev) => prev.filter((c) => c.characterId !== id));
+      if (selectedCharacter?.id === id) setShowDetailDialog(false);
+      fetch(`/api/admin/characters/${id}`, {
         method: "DELETE",
         headers: getAdminHeaders(),
-      });
-      if (res.ok) {
-        setCharacters((prev) => prev.filter((c) => c.id !== id));
-        setComments((prev) => prev.filter((c) => c.characterId !== id));
-        if (selectedCharacter?.id === id) setShowDetailDialog(false);
-        return true;
-      }
-      return false;
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -403,17 +523,23 @@ export default function App() {
 
   const handleCreateAttribute = async (attr: Partial<RankingAttribute>) => {
     try {
-      const res = await fetch("/api/admin/attributes", {
+      const newAttr: RankingAttribute = {
+        id: attr.id || `attr-${Date.now()}`,
+        name: attr.name || "Nuevo Atributo",
+        iconName: attr.iconName || "Sparkles",
+        description: attr.description || "",
+        min: attr.min ?? 1,
+        max: attr.max ?? 10,
+        color: attr.color || "#e11d48",
+      };
+      await saveAttributeFirestore(newAttr);
+      setAttributes((prev) => [...prev, newAttr]);
+      fetch("/api/admin/attributes", {
         method: "POST",
         headers: getAdminHeaders(),
-        body: JSON.stringify(attr),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        setAttributes((prev) => [...prev, created]);
-        return true;
-      }
-      return false;
+        body: JSON.stringify(newAttr),
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -421,17 +547,17 @@ export default function App() {
 
   const handleUpdateAttribute = async (id: string, attr: Partial<RankingAttribute>) => {
     try {
-      const res = await fetch(`/api/admin/attributes/${id}`, {
+      const existing = attributes.find((a) => a.id === id);
+      if (!existing) return false;
+      const updated: RankingAttribute = { ...existing, ...attr };
+      await saveAttributeFirestore(updated);
+      setAttributes((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      fetch(`/api/admin/attributes/${id}`, {
         method: "PUT",
         headers: getAdminHeaders(),
         body: JSON.stringify(attr),
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setAttributes((prev) => prev.map((a) => (a.id === id ? updated : a)));
-        return true;
-      }
-      return false;
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -439,16 +565,16 @@ export default function App() {
 
   const handleDuplicateAttribute = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/attributes/${id}/duplicate`, {
-        method: "POST",
-        headers: getAdminHeaders(),
-      });
-      if (res.ok) {
-        const duplicated = await res.json();
-        setAttributes((prev) => [...prev, duplicated]);
-        return true;
-      }
-      return false;
+      const attr = attributes.find((a) => a.id === id);
+      if (!attr) return false;
+      const duplicated: RankingAttribute = {
+        ...attr,
+        id: `attr-${Date.now()}`,
+        name: `${attr.name} (Copia)`,
+      };
+      await saveAttributeFirestore(duplicated);
+      setAttributes((prev) => [...prev, duplicated]);
+      return true;
     } catch {
       return false;
     }
@@ -456,15 +582,13 @@ export default function App() {
 
   const handleDeleteAttribute = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/attributes/${id}`, {
+      await deleteAttributeFirestore(id);
+      setAttributes((prev) => prev.filter((a) => a.id !== id));
+      fetch(`/api/admin/attributes/${id}`, {
         method: "DELETE",
         headers: getAdminHeaders(),
-      });
-      if (res.ok) {
-        setAttributes((prev) => prev.filter((a) => a.id !== id));
-        return true;
-      }
-      return false;
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -477,17 +601,23 @@ export default function App() {
     role: string;
   }) => {
     try {
-      const res = await fetch("/api/admin/users", {
+      const newAdmin: AdminUser & { password?: string } = {
+        id: `admin-${Date.now()}`,
+        email: admin.email,
+        username: admin.username,
+        role: admin.role as "superadmin" | "moderator",
+        createdAt: new Date().toISOString(),
+        password: admin.password,
+      };
+      await saveAdminFirestore(newAdmin);
+      const { password: _, ...safeAdmin } = newAdmin;
+      setAdminsList((prev) => [...prev, safeAdmin]);
+      fetch("/api/admin/users", {
         method: "POST",
         headers: getAdminHeaders(),
         body: JSON.stringify(admin),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        setAdminsList((prev) => [...prev, created]);
-        return true;
-      }
-      return false;
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -495,15 +625,13 @@ export default function App() {
 
   const handleDeleteAdmin = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/users/${id}`, {
+      await deleteAdminFirestore(id);
+      setAdminsList((prev) => prev.filter((a) => a.id !== id));
+      fetch(`/api/admin/users/${id}`, {
         method: "DELETE",
         headers: getAdminHeaders(),
-      });
-      if (res.ok) {
-        setAdminsList((prev) => prev.filter((a) => a.id !== id));
-        return true;
-      }
-      return false;
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -511,15 +639,13 @@ export default function App() {
 
   const handleDeleteRumor = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/rumors/${id}`, {
+      await deleteRumorFirestore(id);
+      setRumors((prev) => prev.filter((r) => r.id !== id));
+      fetch(`/api/admin/rumors/${id}`, {
         method: "DELETE",
         headers: getAdminHeaders(),
-      });
-      if (res.ok) {
-        setRumors((prev) => prev.filter((r) => r.id !== id));
-        return true;
-      }
-      return false;
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }
@@ -527,15 +653,13 @@ export default function App() {
 
   const handleDeleteComment = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/comments/${id}`, {
+      await deleteCommentFirestore(id);
+      setComments((prev) => prev.filter((c) => c.id !== id));
+      fetch(`/api/admin/comments/${id}`, {
         method: "DELETE",
         headers: getAdminHeaders(),
-      });
-      if (res.ok) {
-        setComments((prev) => prev.filter((c) => c.id !== id));
-        return true;
-      }
-      return false;
+      }).catch(() => {});
+      return true;
     } catch {
       return false;
     }

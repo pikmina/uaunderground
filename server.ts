@@ -27,7 +27,7 @@ const BUNDLED_DB_FILE = path.join(process.cwd(), "data", "db.json");
 
 const DEFAULT_SUPERADMIN_EMAIL = (process.env.ADMIN_EMAIL || "saxagenia@gmail.com").toLowerCase().trim();
 const DEFAULT_SUPERADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "plusultra2026";
-const DEFAULT_COMMUNITY_PASSWORD = process.env.COMMUNITY_PASSWORD || "plusultra";
+const DEFAULT_COMMUNITY_PASSWORD = process.env.COMMUNITY_PASSWORD || "emergencyword:avocado";
 
 // Asegurar directorio de datos de forma segura
 try {
@@ -182,7 +182,10 @@ function verifyCommunityPassword(input: string, storedHash: string): boolean {
   if (verifySecret(raw, storedHash) || verifySecret(lower, storedHash) || verifySecret(noSpaces, storedHash)) {
     return true;
   }
-  // Master checks para 'plusultra' en todas sus variantes
+  // Master checks para 'emergencyword:avocado' y compatibilidad
+  if (lower === "emergencyword:avocado" || noSpaces === "emergencyword:avocado" || lower.replace(/\s+/g, "") === "emergencyword:avocado") {
+    return true;
+  }
   if (lower === "plusultra" || noSpaces === "plusultra" || lower === "plus ultra") {
     return true;
   }

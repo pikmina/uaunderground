@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "characters": {
+      "description": "Hero and student characters from UA Academy",
+      "fields": {
+        "id": { "type": "string", "description": "Unique identifier" },
+        "name": { "type": "string", "description": "Character name" },
+        "alias": { "type": "string", "description": "Hero alias" },
+        "age": { "type": "number", "description": "Age" },
+        "classCourse": { "type": "string", "description": "Course or class" },
+        "quirk": { "type": "string", "description": "Quirk power" },
+        "avatarUrl": { "type": "string", "description": "Avatar image URL" },
+        "bio": { "type": "string", "description": "Biography" },
+        "rankings": { "type": "map", "description": "Attribute scores map" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp" }
+      }
+    },
+    "attributes": {
+      "description": "Ranking metrics and attributes",
+      "fields": {
+        "id": { "type": "string", "description": "Unique identifier" },
+        "name": { "type": "string", "description": "Attribute name" },
+        "iconName": { "type": "string", "description": "Lucide icon name" },
+        "description": { "type": "string", "description": "Attribute description" },
+        "min": { "type": "number", "description": "Minimum score" },
+        "max": { "type": "number", "description": "Maximum score" },
+        "color": { "type": "string", "description": "Hex color code" }
+      }
+    },
+    "rumors": {
+      "description": "Campus rumors and anonymous leaks",
+      "fields": {
+        "id": { "type": "string", "description": "Unique identifier" },
+        "characterId": { "type": "string", "description": "Associated character ID" },
+        "characterName": { "type": "string", "description": "Character name" },
+        "authorName": { "type": "string", "description": "Display name of author" },
+        "authorEmail": { "type": "string", "description": "Author email" },
+        "content": { "type": "string", "description": "Rumor content" },
+        "reactions": { "type": "map", "description": "Emoji reactions counter" },
+        "timestamp": { "type": "string", "description": "ISO timestamp" }
+      }
+    },
+    "comments": {
+      "description": "Character comments and opinions",
+      "fields": {
+        "id": { "type": "string", "description": "Unique identifier" },
+        "characterId": { "type": "string", "description": "Associated character ID" },
+        "authorName": { "type": "string", "description": "Display name of author" },
+        "authorEmail": { "type": "string", "description": "Author email" },
+        "content": { "type": "string", "description": "Comment content" },
+        "reactions": { "type": "map", "description": "Emoji reactions counter" },
+        "timestamp": { "type": "string", "description": "ISO timestamp" }
+      }
+    },
+    "system": {
+      "description": "System configuration and security settings",
+      "fields": {
+        "passwordHint": { "type": "string", "description": "Password hint" },
+        "lastPasswordChange": { "type": "string", "description": "ISO timestamp" },
+        "siteNotice": { "type": "string", "description": "Campus notice broadcast" },
+        "prohibitedWords": { "type": "array", "description": "Banned words" },
+        "communityPasswordHash": { "type": "string", "description": "Hashed community password" }
+      }
+    },
+    "admins": {
+      "description": "Admin and moderator accounts",
+      "fields": {
+        "id": { "type": "string", "description": "Admin ID" },
+        "email": { "type": "string", "description": "Admin email" },
+        "username": { "type": "string", "description": "Admin username" },
+        "role": { "type": "string", "description": "superadmin or moderator" },
+        "passwordHash": { "type": "string", "description": "Hashed password" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" }
+      }
+    }
+  }
+}

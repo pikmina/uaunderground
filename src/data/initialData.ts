@@ -2,8 +2,8 @@ import type { AppStateData } from "../types.ts";
 
 export const initialData: AppStateData = {
   config: {
-    communityPassword: "plusultra",
-    passwordHint: "El lema de la Academia U.A. en minúsculas (pista dada en el canal de Discord)",
+    communityPassword: "emergencyword:avocado",
+    passwordHint: "Palabra clave de emergencia compartida en la comunidad",
     lastPasswordChange: new Date().toISOString(),
     prohibitedWords: [
       "acoso",
