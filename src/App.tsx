@@ -29,6 +29,10 @@ import {
   deleteAdminFirestore,
   deleteRumorFirestore,
   deleteCommentFirestore,
+  addFyeoCommentFirestore,
+  reactToFyeoPostFirestore,
+  reactToFyeoCommentFirestore,
+  deleteFyeoPostFirestore,
 } from "./firebase";
 import { TopNavbar } from "./components/TopNavbar";
 import { Gatekeeper } from "./components/Gatekeeper";
@@ -58,6 +62,7 @@ import {
   Trash2,
   Copy,
   X,
+  Plus,
 } from "lucide-react";
 
 export default function App() {
@@ -109,10 +114,12 @@ export default function App() {
   // Dialogs
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [detailDialogInitialTab, setDetailDialogInitialTab] = useState<"profile" | "comments" | "rumors">("profile");
   const [createRumorOpen, setCreateRumorOpen] = useState(false);
   const [createRumorTargetChar, setCreateRumorTargetChar] = useState<Character | null>(null);
   const [adminInitialSubTab, setAdminInitialSubTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation" | "fyeo">("characters");
   const [adminEditingCharId, setAdminEditingCharId] = useState<string | null>(null);
+  const [adminInitialFyeoAction, setAdminInitialFyeoAction] = useState<{ action: "create" | "edit", postId?: string } | null>(null);
 
   // Global Toast Notifications
   const [toastMessage, setToastMessage] = useState<{
@@ -491,17 +498,19 @@ export default function App() {
 
   const handlePostFyeoComment = async (postId: string, authorName: string, authorEmail: string, content: string) => {
     try {
-      const res = await fetch("/api/fyeo-comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, authorName, authorEmail, content })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setFyeoComments(prev => [data, ...prev]);
-        return { success: true };
-      }
-      return { success: false, error: data.error };
+      const newComment: FyeoComment = {
+        id: "fyeocomm_" + Date.now().toString(),
+        postId,
+        authorName,
+        authorEmail,
+        content,
+        timestamp: new Date().toISOString(),
+        reactions: { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 }
+      };
+      
+      await addFyeoCommentFirestore(newComment);
+      setFyeoComments(prev => [newComment, ...prev]);
+      return { success: true };
     } catch (err: any) {
       return { success: false, error: "Error de red" };
     }
@@ -524,11 +533,7 @@ export default function App() {
         )
       );
       // Sync with API
-      fetch(`/api/fyeo-posts/${postId}/react`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emoji }),
-      }).catch(() => {});
+      await reactToFyeoPostFirestore(postId, emoji);
     } catch (err) {}
   };
 
@@ -549,11 +554,7 @@ export default function App() {
         )
       );
       // Sync with API
-      fetch(`/api/fyeo-comments/${commId}/react`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emoji }),
-      }).catch(() => {});
+      await reactToFyeoCommentFirestore(commId, emoji);
     } catch (err) {}
   };
 
@@ -914,8 +915,9 @@ export default function App() {
   };
 
   // Open detail dialog
-  const openCharacterDetail = (char: Character) => {
+  const openCharacterDetail = (char: Character, tab: "profile" | "comments" | "rumors" = "profile") => {
     setSelectedCharacter(char);
+    setDetailDialogInitialTab(tab);
     setShowDetailDialog(true);
   };
 
@@ -1035,6 +1037,22 @@ export default function App() {
                       <Flame className="w-3.5 h-3.5 mr-1 text-red-600" />
                       Soltar Chisme
                     </Button>
+                    
+                    {adminUser && (
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        onClick={() => {
+                          setAdminEditingCharId(null);
+                          setAdminInitialSubTab("characters");
+                          setActiveTab("admin");
+                        }}
+                        className="font-black uppercase text-xs shrink-0 border-2 border-black"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        Crear Personaje
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -1060,7 +1078,7 @@ export default function App() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     {filteredCharacters.map((char) => {
                       const charRumorsCount = rumors.filter((r) => r.characterId === char.id).length;
                       const charCommentsCount = comments.filter((c) => c.characterId === char.id).length;
@@ -1105,9 +1123,29 @@ export default function App() {
               <FyeoFeed
                 posts={fyeoPosts}
                 comments={fyeoComments}
+                isAdmin={!!adminUser}
                 onReactPost={handleReactFyeoPost}
                 onReactComment={handleReactFyeoComment}
                 onPostComment={handlePostFyeoComment}
+                onCreatePost={() => {
+                  setAdminInitialFyeoAction({ action: "create" });
+                  setActiveTab("admin");
+                }}
+                onEditPost={(postId) => {
+                  setAdminInitialFyeoAction({ action: "edit", postId });
+                  setActiveTab("admin");
+                }}
+                onDeletePost={async (postId) => {
+                  if (adminUser) {
+                    try {
+                      await deleteFyeoPostFirestore(postId);
+                      setFyeoPosts(prev => prev.filter(p => p.id !== postId));
+                      showToast("Comunicado eliminado", "success");
+                    } catch (err) {
+                      showToast("Error al eliminar", "error");
+                    }
+                  }
+                }}
               />
             )}
 
@@ -1131,6 +1169,8 @@ export default function App() {
                 initialSubTab={adminInitialSubTab}
                 initialEditingCharId={adminEditingCharId}
                 onClearInitialEditingChar={() => setAdminEditingCharId(null)}
+                initialFyeoAction={adminInitialFyeoAction}
+                onClearInitialFyeoAction={() => setAdminInitialFyeoAction(null)}
                 onUpdateConfig={handleUpdateConfig}
                 onCreateCharacter={handleCreateCharacter}
                 onUpdateCharacter={handleUpdateCharacter}
@@ -1196,6 +1236,7 @@ export default function App() {
         character={selectedCharacter}
         open={showDetailDialog}
         onOpenChange={setShowDetailDialog}
+        initialTab={detailDialogInitialTab}
         attributes={attributes}
         rumors={rumors}
         comments={comments}

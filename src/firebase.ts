@@ -21,6 +21,8 @@ import type {
   SystemConfig,
   AdminUser,
   EmojiReactionKey,
+  FyeoPost,
+  FyeoComment
 } from "./types.ts";
 
 const configModules = import.meta.glob('../firebase-applet-config.json', { eager: true });
@@ -155,13 +157,17 @@ export async function fetchFirestoreState(): Promise<{
   attributes: RankingAttribute[];
   rumors: Rumor[];
   comments: CharacterComment[];
+  fyeoPosts: FyeoPost[];
+  fyeoComments: FyeoComment[];
   config: Partial<SystemConfig>;
 }> {
-  const [charsSnap, attrsSnap, rumorsSnap, commentsSnap, configSnap] = await Promise.all([
+  const [charsSnap, attrsSnap, rumorsSnap, commentsSnap, fyeoPostsSnap, fyeoCommentsSnap, configSnap] = await Promise.all([
     getDocs(collection(db, "characters")),
     getDocs(collection(db, "attributes")),
     getDocs(collection(db, "rumors")),
     getDocs(collection(db, "comments")),
+    getDocs(collection(db, "fyeo_posts")),
+    getDocs(collection(db, "fyeo_comments")),
     getDoc(doc(db, "system", "config")),
   ]);
 
@@ -169,6 +175,8 @@ export async function fetchFirestoreState(): Promise<{
   const attributes = attrsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as RankingAttribute));
   const rumors = rumorsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Rumor));
   const comments = commentsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CharacterComment));
+  const fyeoPosts = fyeoPostsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as FyeoPost));
+  const fyeoComments = fyeoCommentsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as FyeoComment));
   const config = (configSnap.exists() ? configSnap.data() : {}) as Record<string, any>;
 
   return {
@@ -176,6 +184,8 @@ export async function fetchFirestoreState(): Promise<{
     attributes,
     rumors: rumors.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
     comments: comments.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+    fyeoPosts: fyeoPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    fyeoComments: fyeoComments.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
     config: {
       hasCommunityPassword: Boolean(config.communityPassword || config.hasCommunityPassword),
       passwordHint: config.passwordHint || "Palabra de honor de la academia (en minúsculas)",
@@ -379,4 +389,39 @@ export async function saveAdminFirestore(admin: AdminUser & { password?: string 
 
 export async function deleteAdminFirestore(id: string): Promise<void> {
   await deleteDoc(doc(db, "admins", id));
+}
+
+// FYEO Management
+export async function addFyeoPostFirestore(post: FyeoPost): Promise<void> {
+  await setDoc(doc(db, "fyeo_posts", post.id), cleanData(post));
+}
+
+export async function updateFyeoPostFirestore(post: FyeoPost): Promise<void> {
+  await setDoc(doc(db, "fyeo_posts", post.id), cleanData(post), { merge: true });
+}
+
+export async function deleteFyeoPostFirestore(id: string): Promise<void> {
+  await deleteDoc(doc(db, "fyeo_posts", id));
+}
+
+export async function reactToFyeoPostFirestore(postId: string, emoji: EmojiReactionKey): Promise<void> {
+  const ref = doc(db, "fyeo_posts", postId);
+  await updateDoc(ref, {
+    [`reactions.${emoji}`]: increment(1),
+  });
+}
+
+export async function addFyeoCommentFirestore(comment: FyeoComment): Promise<void> {
+  await setDoc(doc(db, "fyeo_comments", comment.id), cleanData(comment));
+}
+
+export async function deleteFyeoCommentFirestore(id: string): Promise<void> {
+  await deleteDoc(doc(db, "fyeo_comments", id));
+}
+
+export async function reactToFyeoCommentFirestore(commentId: string, emoji: EmojiReactionKey): Promise<void> {
+  const ref = doc(db, "fyeo_comments", commentId);
+  await updateDoc(ref, {
+    [`reactions.${emoji}`]: increment(1),
+  });
 }

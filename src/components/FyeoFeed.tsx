@@ -1,22 +1,30 @@
 import React, { useState } from "react";
-import { FyeoPost, FyeoComment, AdminUser, EmojiReactionKey } from "../types";
-import { Shield, Clock, Flame, Smile, AlertTriangle } from "lucide-react";
+import { FyeoPost, FyeoComment, EmojiReactionKey } from "../types";
+import { Shield, Clock, AlertTriangle, Plus, Edit2, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface FyeoFeedProps {
   posts: FyeoPost[];
   comments: FyeoComment[];
+  isAdmin?: boolean;
   onReactPost?: (postId: string, emoji: EmojiReactionKey) => void;
   onReactComment?: (commentId: string, emoji: EmojiReactionKey) => void;
   onPostComment: (postId: string, authorName: string, authorEmail: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  onCreatePost?: () => void;
+  onEditPost?: (postId: string) => void;
+  onDeletePost?: (postId: string) => void;
 }
 
 export const FyeoFeed: React.FC<FyeoFeedProps> = ({
   posts,
   comments,
+  isAdmin,
   onReactPost,
   onReactComment,
-  onPostComment
+  onPostComment,
+  onCreatePost,
+  onEditPost,
+  onDeletePost
 }) => {
   const [activeCommentPost, setActiveCommentPost] = useState<string | null>(null);
   const [commentContent, setCommentContent] = useState("");
@@ -50,10 +58,20 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
 
   if (posts.length === 0) {
     return (
-      <div className="text-center py-20 bg-black text-white border-4 border-red-600 rounded-xl shadow-[8px_8px_0px_0px_rgba(220,38,38,1)]">
-        <Shield className="w-16 h-16 text-red-600 mx-auto mb-4" />
-        <h2 className="text-2xl font-black uppercase tracking-widest mb-2">Acceso Restringido</h2>
-        <p className="text-zinc-400 font-bold max-w-sm mx-auto">No hay registros clasificados disponibles en este momento. Mantén los ojos abiertos.</p>
+      <div className="space-y-6">
+        {isAdmin && onCreatePost && (
+          <div className="flex justify-end">
+            <Button onClick={onCreatePost} variant="hero" className="border-2 border-black font-black">
+              <Plus className="w-4 h-4 mr-2" />
+              Nuevo Comunicado
+            </Button>
+          </div>
+        )}
+        <div className="text-center py-20 bg-black text-white border-4 border-red-600 rounded-xl shadow-[8px_8px_0px_0px_rgba(220,38,38,1)]">
+          <Shield className="w-16 h-16 text-red-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-black uppercase tracking-widest mb-2">Acceso Restringido</h2>
+          <p className="text-zinc-400 font-bold max-w-sm mx-auto">No hay registros clasificados disponibles en este momento. Mantén los ojos abiertos.</p>
+        </div>
       </div>
     );
   }
@@ -67,6 +85,15 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
         <p className="text-sm font-bold text-zinc-300">Registros y comunicados oficiales del cuerpo de moderación de UA Underground.</p>
       </div>
 
+      {isAdmin && onCreatePost && (
+        <div className="flex justify-end">
+          <Button onClick={onCreatePost} variant="hero" className="border-2 border-black font-black">
+            <Plus className="w-4 h-4 mr-2" />
+            Nuevo Comunicado
+          </Button>
+        </div>
+      )}
+
       <div className="space-y-8">
         {posts.map((post) => {
           const postComments = comments.filter(c => c.postId === post.id);
@@ -74,13 +101,30 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
           return (
             <div key={post.id} className="bg-white border-4 border-black rounded-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] overflow-hidden flex flex-col">
               {/* Header */}
-              <div className="bg-zinc-100 border-b-4 border-black p-4 sm:p-6 flex items-start sm:items-center justify-between flex-col sm:flex-row gap-4">
-                <div className="flex items-center gap-4">
+              <div className="bg-zinc-100 border-b-4 border-black p-4 sm:p-6 flex flex-col gap-4 relative">
+                
+                {/* Admin controls */}
+                {isAdmin && (
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    {onEditPost && (
+                      <button onClick={() => onEditPost(post.id)} className="p-1.5 bg-white border-2 border-black rounded hover:bg-amber-100 cursor-pointer transition-colors" title="Editar comunicado">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {onDeletePost && (
+                      <button onClick={() => { if(window.confirm('¿Seguro que deseas eliminar este comunicado?')) onDeletePost(post.id); }} className="p-1.5 bg-white border-2 border-black rounded hover:bg-red-100 text-red-600 cursor-pointer transition-colors" title="Borrar comunicado">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-4 pr-16">
                   <div className="w-14 h-14 rounded-full border-2 border-black overflow-hidden shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-black">
                     <img src={post.authorAvatar} alt="Autor" className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h3 className="text-xl sm:text-2xl font-black uppercase leading-tight text-black">{post.title}</h3>
+                    <h3 className="text-xl sm:text-2xl font-black uppercase leading-tight text-black break-words">{post.title}</h3>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="bg-red-600 text-white text-[10px] uppercase font-black px-2 py-0.5 rounded tracking-widest">
                         {post.authorAlias}
@@ -225,3 +269,4 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
     </div>
   );
 };
+

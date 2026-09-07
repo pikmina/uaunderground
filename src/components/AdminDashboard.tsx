@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { getAttributeIcon, HEROIC_ICONS } from "../lib/heroIcons";
 import { TiptapEditor } from "./TiptapEditor";
+import { addFyeoPostFirestore, updateFyeoPostFirestore, deleteFyeoPostFirestore } from "../firebase";
 
 interface AdminDashboardProps {
   config: SystemConfig;
@@ -54,6 +55,8 @@ interface AdminDashboardProps {
   initialSubTab?: "password" | "characters" | "attributes" | "admins" | "moderation" | "fyeo";
   initialEditingCharId?: string | null;
   onClearInitialEditingChar?: () => void;
+  initialFyeoAction?: { action: "create" | "edit"; postId?: string } | null;
+  onClearInitialFyeoAction?: () => void;
   onUpdateConfig: (newConfig: Partial<SystemConfig>) => Promise<boolean>;
   onCreateCharacter: (char: Partial<Character>) => Promise<boolean>;
   onUpdateCharacter: (id: string, char: Partial<Character>) => Promise<boolean>;
@@ -97,6 +100,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   initialSubTab,
   initialEditingCharId,
   onClearInitialEditingChar,
+  initialFyeoAction,
+  onClearInitialFyeoAction,
   onUpdateConfig,
   onCreateCharacter,
   onUpdateCharacter,
@@ -219,17 +224,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Synchronize when initial props change
+  // Handle initial sub tab changes
+  useEffect(() => {
+    if (initialSubTab && !initialEditingCharId && !initialFyeoAction) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab]); // Only on initialSubTab changes
+
+  // Handle character editing initial action
   useEffect(() => {
     if (initialEditingCharId) {
       const found = characters.find((c) => c.id === initialEditingCharId);
       if (found) {
         startEditingCharacter(found);
       }
-    } else if (initialSubTab) {
-      setActiveTab(initialSubTab);
+      if (onClearInitialEditingChar) {
+        onClearInitialEditingChar();
+      }
     }
-  }, [initialEditingCharId, initialSubTab, characters]);
+  }, [initialEditingCharId, characters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle FYEO initial action
+  useEffect(() => {
+    if (initialFyeoAction) {
+      setActiveTab("fyeo");
+      setFyeoView(initialFyeoAction.action);
+      if (initialFyeoAction.action === "edit" && initialFyeoAction.postId) {
+        const found = fyeoPosts.find(p => p.id === initialFyeoAction.postId);
+        if (found) {
+          setFyeoFormData(found);
+        }
+      } else if (initialFyeoAction.action === "create") {
+        setFyeoFormData({
+          title: "",
+          content: "",
+          authorAlias: "The Informant",
+          authorAvatar: "https://images.unsplash.com/photo-1542282088-fe8426682b8f?w=400&auto=format&fit=crop&q=80"
+        });
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (onClearInitialFyeoAction) {
+        onClearInitialFyeoAction();
+      }
+    }
+  }, [initialFyeoAction, fyeoPosts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetCharForm = () => {
     setEditingCharId(null);
@@ -2201,17 +2239,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 `¿Eliminar "${post.title}"?`,
                                 async () => {
                                   try {
-                                    const res = await fetch(`/api/admin/fyeo-posts/${post.id}`, {
-                                      method: "DELETE",
-                                      headers: {
-                                        "Authorization": `Bearer ${sessionStorage.getItem("ua_admin_token")}`,
-                                      }
-                                    });
-                                    if (res.ok) {
-                                      onDeleteFyeoPost(post.id);
-                                    } else {
-                                      throw new Error("No se pudo eliminar");
-                                    }
+                                    await deleteFyeoPostFirestore(post.id);
+                                    onDeleteFyeoPost(post.id);
                                   } catch (err) {
                                     setStatusMessage({ text: "Error al eliminar", type: "error" });
                                   }
@@ -2250,6 +2279,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
                   <div className="space-y-2">
+                    <Label className="font-black uppercase text-xs">URL del Avatar (Remitente)</Label>
+                    <Input
+                      value={fyeoFormData.authorAvatar}
+                      onChange={(e) => setFyeoFormData({ ...fyeoFormData, authorAvatar: e.target.value })}
+                      placeholder="https://images.unsplash.com/..."
+                      className="font-bold border-2 border-black"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label className="font-black uppercase text-xs">Contenido</Label>
                     <TiptapEditor
                       content={fyeoFormData.content || ""}
@@ -2275,29 +2313,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         }
                         setIsSubmittingFyeo(true);
                         try {
-                          const url = fyeoView === "edit" 
-                            ? `/api/admin/fyeo-posts/${fyeoFormData.id}`
-                            : "/api/admin/fyeo-posts";
-                          const res = await fetch(url, {
-                            method: fyeoView === "edit" ? "PUT" : "POST",
-                            headers: {
-                              "Content-Type": "application/json",
-                              "Authorization": `Bearer ${sessionStorage.getItem("ua_admin_token")}`
-                            },
-                            body: JSON.stringify(fyeoFormData)
-                          });
-                          const data = await res.json();
-                          if (res.ok) {
-                            if (fyeoView === "edit") {
-                              onUpdateFyeoPost(data);
-                            } else {
-                              onAddFyeoPost(data);
-                            }
-                            setFyeoView("list");
-                            setStatusMessage({ text: "Comunicado guardado con éxito.", type: "success" });
+                          const now = new Date().toISOString();
+                          if (fyeoView === "edit" && fyeoFormData.id) {
+                            const updatedPost = { ...fyeoFormData, updatedAt: now } as FyeoPost;
+                            await updateFyeoPostFirestore(updatedPost);
+                            onUpdateFyeoPost(updatedPost);
                           } else {
-                            setStatusMessage({ text: data.error || "Error al guardar.", type: "error" });
+                            const newPost = {
+                              ...fyeoFormData,
+                              id: "fyeo_" + Date.now().toString(),
+                              createdAt: now,
+                              updatedAt: now,
+                              reactions: { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 }
+                            } as FyeoPost;
+                            await addFyeoPostFirestore(newPost);
+                            onAddFyeoPost(newPost);
                           }
+                          setFyeoView("list");
+                          setStatusMessage({ text: "Comunicado guardado con éxito.", type: "success" });
                         } catch (err) {
                           setStatusMessage({ text: "Error de red", type: "error" });
                         } finally {

@@ -36,6 +36,7 @@ interface CharacterDetailDialogProps {
   character: Character | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTab?: "profile" | "comments" | "rumors";
   attributes: RankingAttribute[];
   rumors: Rumor[];
   comments: CharacterComment[];
@@ -66,6 +67,7 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
   character,
   open,
   onOpenChange,
+  initialTab = "profile",
   attributes,
   rumors,
   comments,
@@ -78,9 +80,13 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
   onEditCharacter,
   prohibitedWords,
 }) => {
-  if (!character) return null;
+  const [activeTab, setActiveTab] = useState<"profile" | "comments" | "rumors">(initialTab);
 
-  const [activeTab, setActiveTab] = useState<"profile" | "comments" | "rumors">("profile");
+  React.useEffect(() => {
+    if (open) {
+      setActiveTab(initialTab);
+    }
+  }, [open, initialTab]);
 
   // Comment form state
   const [commentName, setCommentName] = useState("");
@@ -89,6 +95,8 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [commentSuccess, setCommentSuccess] = useState(false);
+
+  if (!character) return null;
 
   // Filtered lists for this character
   const charRumors = rumors.filter((r) => r.characterId === character.id);
