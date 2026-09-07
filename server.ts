@@ -563,13 +563,13 @@ app.get("/api/admin/config-full", authenticateAdmin, (req: Request, res: Respons
 
 // CRUD de Personajes (Admin / SuperAdmin autenticado)
 app.post("/api/admin/characters", authenticateAdmin, (req: Request, res: Response) => {
-  const { name, alias, age, classCourse, quirk, avatarUrl, bio, rankings } = req.body;
+  const { id, name, alias, age, classCourse, quirk, avatarUrl, bio, rankings } = req.body;
   if (!name) {
     return res.status(400).json({ error: "El nombre del personaje es obligatorio." });
   }
 
   const newChar: Character = {
-    id: `char-${Date.now()}`,
+    id: id || `char-${Date.now()}`,
     name: name.trim(),
     alias: alias?.trim() || "",
     age: age || 16,
@@ -639,13 +639,13 @@ app.delete("/api/admin/characters/:id", authenticateAdmin, (req: Request, res: R
 
 // CRUD de Atributos de Ranking Dinámicos (Admin autenticado)
 app.post("/api/admin/attributes", authenticateAdmin, (req: Request, res: Response) => {
-  const { name, iconName, description, color, min, max } = req.body;
+  const { id, name, iconName, description, color, min, max } = req.body;
   if (!name) {
     return res.status(400).json({ error: "El nombre del atributo es obligatorio." });
   }
 
   const newAttr: RankingAttribute = {
-    id: `attr-${Date.now()}`,
+    id: id || `attr-${Date.now()}`,
     name: name.trim(),
     iconName: iconName || "Zap",
     description: description?.trim() || "",

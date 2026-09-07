@@ -10,6 +10,7 @@ import {
 } from "./types";
 import {
   fetchFirestoreState,
+  testConnection,
   verifyCommunityPasswordFirestore,
   adminLoginFirestore,
   reactToRumorFirestore,
@@ -49,6 +50,11 @@ import {
   Sparkles,
   Loader2,
   RefreshCw,
+  CheckCircle,
+  AlertTriangle,
+  Trash2,
+  Copy,
+  X,
 } from "lucide-react";
 
 export default function App() {
@@ -102,6 +108,49 @@ export default function App() {
   const [createRumorTargetChar, setCreateRumorTargetChar] = useState<Character | null>(null);
   const [adminInitialSubTab, setAdminInitialSubTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation">("characters");
   const [adminEditingCharId, setAdminEditingCharId] = useState<string | null>(null);
+
+  // Global Toast Notifications
+  const [toastMessage, setToastMessage] = useState<{
+    text: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+
+  const showToast = (text: string, type: "success" | "error" | "info" = "success") => {
+    setToastMessage({ text, type });
+    setTimeout(() => {
+      setToastMessage((curr) => (curr?.text === text ? null : curr));
+    }, 4500);
+  };
+
+  // In-app Deletion Confirmation Dialog
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    itemName: string;
+    message: string;
+    onConfirm: () => Promise<void> | void;
+  }>({
+    open: false,
+    title: "",
+    itemName: "",
+    message: "",
+    onConfirm: () => {},
+  });
+  const [isConfirmDeleting, setIsConfirmDeleting] = useState(false);
+
+  const executeAppDelete = async () => {
+    if (!deleteConfirmDialog.onConfirm) return;
+    setIsConfirmDeleting(true);
+    try {
+      await deleteConfirmDialog.onConfirm();
+    } catch (err) {
+      console.error("Error executing delete:", err);
+      showToast("Ocurrió un error al eliminar.", "error");
+    } finally {
+      setIsConfirmDeleting(false);
+      setDeleteConfirmDialog((prev) => ({ ...prev, open: false }));
+    }
+  };
 
   const handleOpenEditCharacterInAdmin = (char: Character) => {
     if (!adminUser) {
@@ -189,6 +238,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    testConnection().catch(() => {});
     fetchState();
   }, []);
 
@@ -499,37 +549,88 @@ export default function App() {
     }
   };
 
-  const handleDuplicateCharacter = async (id: string) => {
+  const handleDuplicateCharacter = async (idOrChar: string | Character) => {
     try {
+      const id = typeof idOrChar === "string" ? idOrChar : idOrChar?.id;
       const char = characters.find((c) => c.id === id);
-      if (!char) return false;
+      if (!char) {
+        showToast("No se encontró el personaje para duplicar.", "error");
+        return false;
+      }
+      const newId = `char-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const duplicated: Character = {
         ...char,
-        id: `char-${Date.now()}`,
+        id: newId,
         name: `${char.name} (Copia)`,
+        alias: char.alias ? `${char.alias} (Copia)` : "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      await saveCharacterFirestore(duplicated);
+
+      // 1. INMEDIATA actualización optimista de estado: el personaje aparece instantáneamente
       setCharacters((prev) => [duplicated, ...prev]);
+
+      // 2. Notificación explícita al usuario
+      showToast(`¡Copia creada! Se ha duplicado a "${duplicated.name}" con éxito.`, "success");
+
+      // 3. Persistir en Firestore y Servidor en segundo plano
+      saveCharacterFirestore(duplicated).catch((fbErr) => {
+        console.warn("Firestore duplicate character warning:", fbErr);
+      });
+      fetch("/api/admin/characters", {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify(duplicated),
+      }).catch(() => {});
+
       return true;
-    } catch {
+    } catch (err) {
+      console.error("Error duplicating character:", err);
+      showToast("Error inesperado al duplicar el personaje.", "error");
       return false;
     }
   };
 
-  const handleDeleteCharacter = async (id: string) => {
+  const requestDeleteCharacterGlobal = (char: Character) => {
+    setDeleteConfirmDialog({
+      open: true,
+      title: "Eliminar Personaje",
+      itemName: char.name,
+      message: `¿Estás seguro de que deseas eliminar la ficha de ${char.name}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        await handleDeleteCharacter(char.id);
+      },
+    });
+  };
+
+  const handleDeleteCharacter = async (idOrChar: string | Character) => {
     try {
-      await deleteCharacterFirestore(id);
+      const id = typeof idOrChar === "string" ? idOrChar : idOrChar?.id;
+      if (!id) return false;
+      const charToDelete = characters.find((c) => c.id === id);
+      const charName = charToDelete?.name || "Personaje";
+
+      // 1. INMEDIATA actualización optimista de estado: se retira instantáneamente
       setCharacters((prev) => prev.filter((c) => c.id !== id));
       setComments((prev) => prev.filter((c) => c.characterId !== id));
       if (selectedCharacter?.id === id) setShowDetailDialog(false);
+
+      // 2. Notificación explícita de confirmación de borrado
+      showToast(`Personaje "${charName}" eliminado correctamente.`, "success");
+
+      // 3. Persistir borrado en Firestore y Servidor
+      deleteCharacterFirestore(id).catch((fbErr) => {
+        console.warn("Firestore delete character warning:", fbErr);
+      });
       fetch(`/api/admin/characters/${id}`, {
         method: "DELETE",
         headers: getAdminHeaders(),
       }).catch(() => {});
+
       return true;
-    } catch {
+    } catch (err) {
+      console.error("Error deleting character:", err);
+      showToast("Error al eliminar el personaje.", "error");
       return false;
     }
   };
@@ -545,7 +646,11 @@ export default function App() {
         max: attr.max ?? 10,
         color: attr.color || "#e11d48",
       };
-      await saveAttributeFirestore(newAttr);
+      try {
+        await saveAttributeFirestore(newAttr);
+      } catch (fbErr) {
+        console.warn("Firestore create attribute warning:", fbErr);
+      }
       setAttributes((prev) => [...prev, newAttr]);
       fetch("/api/admin/attributes", {
         method: "POST",
@@ -553,7 +658,8 @@ export default function App() {
         body: JSON.stringify(newAttr),
       }).catch(() => {});
       return true;
-    } catch {
+    } catch (err) {
+      console.error("Error creating attribute:", err);
       return false;
     }
   };
@@ -563,7 +669,11 @@ export default function App() {
       const existing = attributes.find((a) => a.id === id);
       if (!existing) return false;
       const updated: RankingAttribute = { ...existing, ...attr };
-      await saveAttributeFirestore(updated);
+      try {
+        await saveAttributeFirestore(updated);
+      } catch (fbErr) {
+        console.warn("Firestore update attribute warning:", fbErr);
+      }
       setAttributes((prev) => prev.map((a) => (a.id === id ? updated : a)));
       fetch(`/api/admin/attributes/${id}`, {
         method: "PUT",
@@ -571,38 +681,88 @@ export default function App() {
         body: JSON.stringify(attr),
       }).catch(() => {});
       return true;
-    } catch {
+    } catch (err) {
+      console.error("Error updating attribute:", err);
       return false;
     }
   };
 
-  const handleDuplicateAttribute = async (id: string) => {
+  const handleDuplicateAttribute = async (idOrAttr: string | RankingAttribute) => {
     try {
+      const id = typeof idOrAttr === "string" ? idOrAttr : idOrAttr?.id;
       const attr = attributes.find((a) => a.id === id);
-      if (!attr) return false;
+      if (!attr) {
+        showToast("No se encontró el atributo para duplicar.", "error");
+        return false;
+      }
+      const newId = `attr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const duplicated: RankingAttribute = {
         ...attr,
-        id: `attr-${Date.now()}`,
+        id: newId,
         name: `${attr.name} (Copia)`,
       };
-      await saveAttributeFirestore(duplicated);
+
+      // 1. INMEDIATA actualización optimista de estado
       setAttributes((prev) => [...prev, duplicated]);
+
+      // 2. Notificación explícita al usuario
+      showToast(`¡Copia creada! Se ha duplicado el atributo "${duplicated.name}" con éxito.`, "success");
+
+      // 3. Persistir en Firestore y Servidor en segundo plano
+      saveAttributeFirestore(duplicated).catch((fbErr) => {
+        console.warn("Firestore duplicate attribute warning:", fbErr);
+      });
+      fetch("/api/admin/attributes", {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify(duplicated),
+      }).catch(() => {});
+
       return true;
-    } catch {
+    } catch (err) {
+      console.error("Error duplicating attribute:", err);
+      showToast("Error inesperado al duplicar el atributo.", "error");
       return false;
     }
   };
 
-  const handleDeleteAttribute = async (id: string) => {
+  const handleDeleteAttribute = async (idOrAttr: string | RankingAttribute) => {
     try {
-      await deleteAttributeFirestore(id);
+      const id = typeof idOrAttr === "string" ? idOrAttr : idOrAttr?.id;
+      if (!id) return false;
+      const attr = attributes.find((a) => a.id === id);
+      const attrName = attr?.name || "Atributo";
+
+      // 1. INMEDIATA actualización optimista de estado
       setAttributes((prev) => prev.filter((a) => a.id !== id));
+      // Limpiar rankings en todos los personajes de la memoria local
+      setCharacters((prev) =>
+        prev.map((c) => {
+          if (c.rankings && id in c.rankings) {
+            const nextRankings = { ...c.rankings };
+            delete nextRankings[id];
+            return { ...c, rankings: nextRankings };
+          }
+          return c;
+        })
+      );
+
+      // 2. Notificación explícita de confirmación de borrado
+      showToast(`Atributo "${attrName}" eliminado de los rankings.`, "success");
+
+      // 3. Persistir borrado en Firestore y Servidor
+      deleteAttributeFirestore(id).catch((fbErr) => {
+        console.warn("Firestore delete attribute warning:", fbErr);
+      });
       fetch(`/api/admin/attributes/${id}`, {
         method: "DELETE",
         headers: getAdminHeaders(),
       }).catch(() => {});
+
       return true;
-    } catch {
+    } catch (err) {
+      console.error("Error deleting attribute:", err);
+      showToast("Error al eliminar el atributo.", "error");
       return false;
     }
   };
@@ -840,7 +1000,7 @@ export default function App() {
                           adminUser={adminUser}
                           onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
                           onDuplicate={handleDuplicateCharacter}
-                          onDelete={handleDeleteCharacter}
+                          onDelete={requestDeleteCharacterGlobal}
                           commentCount={charCommentsCount}
                           rumorCount={charRumorsCount}
                         />
@@ -974,6 +1134,68 @@ export default function App() {
         onOpenChange={setShowAdminLogin}
         onLogin={handleAdminLogin}
       />
+
+      {/* CONFIRMATION DIALOG */}
+      {deleteConfirmDialog.open && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-black rounded-xl p-6 max-w-sm w-full shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4 text-red-600">
+              <AlertTriangle className="w-8 h-8" />
+              <h2 className="text-xl font-black">{deleteConfirmDialog.title}</h2>
+            </div>
+            <p className="text-sm font-bold text-zinc-700 mb-6">
+              {deleteConfirmDialog.message}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                disabled={isConfirmDeleting}
+                onClick={() => setDeleteConfirmDialog({ ...deleteConfirmDialog, open: false })}
+                className="px-4 py-2 border-2 border-black rounded-lg font-bold hover:bg-zinc-100 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={isConfirmDeleting}
+                onClick={executeAppDelete}
+                className="px-4 py-2 border-2 border-black rounded-lg font-bold bg-red-500 hover:bg-red-400 text-white transition-colors cursor-pointer flex items-center justify-center min-w-[100px] disabled:opacity-60"
+              >
+                {isConfirmDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sí, eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GLOBAL TOAST */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[1000] max-w-md animate-in slide-in-from-bottom-5 duration-200">
+          <div
+            className={`p-4 rounded-xl border-3 border-black font-black text-xs sm:text-sm flex items-center gap-3 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] ${
+              toastMessage.type === "success"
+                ? "bg-amber-300 text-black"
+                : toastMessage.type === "error"
+                ? "bg-red-500 text-white"
+                : "bg-sky-300 text-black"
+            }`}
+          >
+            {toastMessage.type === "success" ? (
+              <CheckCircle className="w-5 h-5 shrink-0 text-green-800" />
+            ) : toastMessage.type === "error" ? (
+              <AlertTriangle className="w-5 h-5 shrink-0 text-white" />
+            ) : (
+              <Sparkles className="w-5 h-5 shrink-0 text-black" />
+            )}
+            <span className="flex-1 leading-snug">{toastMessage.text}</span>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="p-1 rounded hover:bg-black/10 transition-colors cursor-pointer shrink-0"
+              title="Cerrar aviso"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

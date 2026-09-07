@@ -1,10 +1,12 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
+  initializeFirestore,
   getFirestore,
   collection,
   doc,
   getDocs,
   getDoc,
+  getDocFromServer,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -22,6 +24,50 @@ import type {
   EmojiReactionKey,
 } from "./types.ts";
 
+export enum OperationType {
+  CREATE = "create",
+  UPDATE = "update",
+  DELETE = "delete",
+  LIST = "list",
+  GET = "get",
+  WRITE = "write",
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
+      tenantId: null,
+      providerInfo: [],
+    },
+    operationType,
+    path,
+  };
+  console.error("Firestore Error: ", JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 // Initialize Firebase App singleton
 const app = !getApps().length
   ? initializeApp({
@@ -29,12 +75,44 @@ const app = !getApps().length
       projectId: firebaseConfig.projectId,
       appId: firebaseConfig.appId,
       authDomain: firebaseConfig.authDomain,
+      storageBucket: firebaseConfig.storageBucket,
+      messagingSenderId: firebaseConfig.messagingSenderId,
     })
   : getApp();
 
-export const db: Firestore = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+// Use long-polling transport to ensure solid connectivity in iframe and sandboxed web environments
+export const db: Firestore = (() => {
+  const dbId = firebaseConfig.firestoreDatabaseId || "(default)";
+  try {
+    return initializeFirestore(
+      app,
+      {
+        experimentalForceLongPolling: true,
+      },
+      dbId
+    );
+  } catch (err) {
+    console.warn("Could not initializeFirestore with long polling, falling back to default:", err);
+    return firebaseConfig.firestoreDatabaseId
+      ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+      : getFirestore(app);
+  }
+})();
+
+// Validate connection to Firestore on boot
+export async function testConnection(): Promise<boolean> {
+  try {
+    await getDocFromServer(doc(db, "system", "config"));
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("the client is offline")) {
+      console.warn("Firestore connection notice: client operates in offline mode temporarily.");
+    } else {
+      console.warn("Firestore connection check notice:", error);
+    }
+    return false;
+  }
+}
 
 // Helper to remove undefined values for Firestore compatibility
 function cleanData<T extends Record<string, any>>(obj: T): T {

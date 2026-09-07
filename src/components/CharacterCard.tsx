@@ -15,6 +15,7 @@ import {
   Zap,
   HelpCircle,
   User,
+  Loader2,
 } from "lucide-react";
 
 interface CharacterCardProps {
@@ -30,25 +31,8 @@ interface CharacterCardProps {
   rumorCount: number;
 }
 
-// Icon helper
-export function getAttributeIcon(iconName: string) {
-  switch (iconName.toLowerCase()) {
-    case "users":
-    case "social":
-      return <Users className="w-3.5 h-3.5" />;
-    case "sparkles":
-    case "atractivo":
-      return <Sparkles className="w-3.5 h-3.5" />;
-    case "flame":
-    case "caos":
-      return <Flame className="w-3.5 h-3.5" />;
-    case "zap":
-    case "carisma":
-      return <Zap className="w-3.5 h-3.5" />;
-    default:
-      return <Zap className="w-3.5 h-3.5" />;
-  }
-}
+import { getAttributeIcon } from "../lib/heroIcons";
+export { getAttributeIcon };
 
 export const CharacterCard: React.FC<CharacterCardProps> = ({
   character,
@@ -64,12 +48,23 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
 }) => {
   const [imgSrc, setImgSrc] = useState(character.avatarUrl);
   const [imgError, setImgError] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Re-sync if prop updates
   React.useEffect(() => {
     setImgSrc(character.avatarUrl);
     setImgError(false);
   }, [character.avatarUrl]);
+
+  const handleDuplicate = async () => {
+    if (!onDuplicate || isDuplicating) return;
+    setIsDuplicating(true);
+    try {
+      await onDuplicate(character);
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
 
   return (
     <Card className="border-3 border-black bg-white shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-[7px_7px_0px_0px_rgba(0,0,0,1)] transition-all flex flex-col justify-between overflow-hidden relative group">
@@ -219,12 +214,22 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onDuplicate(character)}
-                className="h-7 px-2 text-[11px] font-bold border-black hover:bg-sky-200"
-                title="Duplicar ficha"
+                disabled={isDuplicating}
+                onClick={handleDuplicate}
+                className="h-7 px-2 text-[11px] font-bold border-black hover:bg-sky-200 cursor-pointer disabled:opacity-60"
+                title="Duplicar ficha de personaje"
               >
-                <Copy className="w-3 h-3 mr-1" />
-                Duplicar
+                {isDuplicating ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Duplicando...
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 mr-1" />
+                    Duplicar
+                  </>
+                )}
               </Button>
               <Button
                 variant="destructive"
