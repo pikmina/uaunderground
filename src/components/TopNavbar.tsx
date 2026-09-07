@@ -5,8 +5,8 @@ import { Shield, Users, MessageSquare, Trophy, Lock, LogOut } from "lucide-react
 import { AdminUser } from "../types";
 
 interface TopNavbarProps {
-  activeTab: "characters" | "rumors" | "rankings" | "admin";
-  onTabChange: (tab: "characters" | "rumors" | "rankings" | "admin") => void;
+  activeTab: "characters" | "rumors" | "rankings" | "admin" | "fyeo";
+  onTabChange: (tab: "characters" | "rumors" | "rankings" | "admin" | "fyeo") => void;
   adminUser: AdminUser | null;
   onAdminLogout: () => void;
   siteNotice: string;
@@ -81,6 +81,18 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             <MessageSquare className="w-4 h-4" />
             <span>Buzón de Chismes</span>
           </Button>
+
+          {adminUser && (
+            <Button
+              variant={activeTab === "fyeo" ? "heroDestructive" : "outline"}
+              size="sm"
+              onClick={() => onTabChange("fyeo")}
+              className={`font-bold border-2 border-black ${activeTab !== "fyeo" ? "text-red-600 hover:text-red-700 hover:bg-red-50" : ""}`}
+            >
+              <Shield className="w-4 h-4" />
+              <span>FYEO</span>
+            </Button>
+          )}
 
           <Button
             variant={activeTab === "rankings" ? "hero" : "outline"}

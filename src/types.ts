@@ -45,6 +45,27 @@ export interface CharacterComment {
   timestamp: string;
 }
 
+export interface FyeoPost {
+  id: string;
+  title: string;
+  content: string; // HTML format from TipTap
+  authorAlias: string;
+  authorAvatar: string;
+  createdAt: string;
+  updatedAt: string;
+  reactions?: Record<EmojiReactionKey, number>;
+}
+
+export interface FyeoComment {
+  id: string;
+  postId: string;
+  authorName: string;
+  authorEmail: string; // Private
+  content: string;
+  reactions: Record<EmojiReactionKey, number>;
+  timestamp: string;
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -70,4 +91,6 @@ export interface AppStateData {
   rumors: Rumor[];
   comments: CharacterComment[];
   admins: AdminUser[];
+  fyeoPosts: FyeoPost[];
+  fyeoComments: FyeoComment[];
 }

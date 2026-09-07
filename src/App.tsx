@@ -7,6 +7,8 @@ import {
   AdminUser,
   SystemConfig,
   EmojiReactionKey,
+  FyeoPost,
+  FyeoComment,
 } from "./types";
 import {
   fetchFirestoreState,
@@ -35,6 +37,7 @@ import { CharacterDetailDialog } from "./components/CharacterDetailDialog";
 import { CreateRumorDialog } from "./components/CreateRumorDialog";
 import { AdminLoginDialog } from "./components/AdminLoginDialog";
 import { RumorFeed } from "./components/RumorFeed";
+import { FyeoFeed } from "./components/FyeoFeed";
 import { LeaderboardView } from "./components/LeaderboardView";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { Button } from "./components/ui/button";
@@ -92,10 +95,12 @@ export default function App() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [rumors, setRumors] = useState<Rumor[]>([]);
   const [comments, setComments] = useState<CharacterComment[]>([]);
+  const [fyeoPosts, setFyeoPosts] = useState<FyeoPost[]>([]);
+  const [fyeoComments, setFyeoComments] = useState<FyeoComment[]>([]);
   const [adminsList, setAdminsList] = useState<AdminUser[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"characters" | "rumors" | "rankings" | "admin">("characters");
+  const [activeTab, setActiveTab] = useState<"characters" | "rumors" | "rankings" | "admin" | "fyeo">("characters");
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -106,7 +111,7 @@ export default function App() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [createRumorOpen, setCreateRumorOpen] = useState(false);
   const [createRumorTargetChar, setCreateRumorTargetChar] = useState<Character | null>(null);
-  const [adminInitialSubTab, setAdminInitialSubTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation">("characters");
+  const [adminInitialSubTab, setAdminInitialSubTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation" | "fyeo">("characters");
   const [adminEditingCharId, setAdminEditingCharId] = useState<string | null>(null);
 
   // Global Toast Notifications
@@ -192,6 +197,8 @@ export default function App() {
         if (data.characters) setCharacters(data.characters);
         if (data.rumors) setRumors(data.rumors);
         if (data.comments) setComments(data.comments);
+        if (data.fyeoPosts) setFyeoPosts(data.fyeoPosts);
+        if (data.fyeoComments) setFyeoComments(data.fyeoComments);
       }
 
       // If admin, fetch admin users and full config
@@ -480,6 +487,74 @@ export default function App() {
       console.error("Error posting comment:", err);
       return { success: false, error: err?.message || "No se pudo publicar el comentario." };
     }
+  };
+
+  const handlePostFyeoComment = async (postId: string, authorName: string, authorEmail: string, content: string) => {
+    try {
+      const res = await fetch("/api/fyeo-comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId, authorName, authorEmail, content })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFyeoComments(prev => [data, ...prev]);
+        return { success: true };
+      }
+      return { success: false, error: data.error };
+    } catch (err: any) {
+      return { success: false, error: "Error de red" };
+    }
+  };
+
+  const handleReactFyeoPost = async (postId: string, emoji: EmojiReactionKey) => {
+    try {
+      // Optimistic update
+      setFyeoPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                reactions: {
+                  ...p.reactions,
+                  [emoji]: (p.reactions?.[emoji] || 0) + 1,
+                },
+              }
+            : p
+        )
+      );
+      // Sync with API
+      fetch(`/api/fyeo-posts/${postId}/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emoji }),
+      }).catch(() => {});
+    } catch (err) {}
+  };
+
+  const handleReactFyeoComment = async (commId: string, emoji: EmojiReactionKey) => {
+    try {
+      // Optimistic update
+      setFyeoComments((prev) =>
+        prev.map((c) =>
+          c.id === commId
+            ? {
+                ...c,
+                reactions: {
+                  ...c.reactions,
+                  [emoji]: (c.reactions?.[emoji] || 0) + 1,
+                },
+              }
+            : c
+        )
+      );
+      // Sync with API
+      fetch(`/api/fyeo-comments/${commId}/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emoji }),
+      }).catch(() => {});
+    } catch (err) {}
   };
 
   // Admin Actions with Cloud Firestore Persistence
@@ -1025,7 +1100,18 @@ export default function App() {
               />
             )}
 
-            {/* VIEW 3: LEADERBOARDS & RANKINGS */}
+            {/* VIEW 3: FYEO */}
+            {activeTab === "fyeo" && (
+              <FyeoFeed
+                posts={fyeoPosts}
+                comments={fyeoComments}
+                onReactPost={handleReactFyeoPost}
+                onReactComment={handleReactFyeoComment}
+                onPostComment={handlePostFyeoComment}
+              />
+            )}
+
+            {/* VIEW 4: LEADERBOARDS & RANKINGS */}
             {activeTab === "rankings" && (
               <LeaderboardView
                 characters={characters}
@@ -1034,7 +1120,7 @@ export default function App() {
               />
             )}
 
-            {/* VIEW 4: ADMIN DASHBOARD */}
+            {/* VIEW 5: ADMIN DASHBOARD */}
             {activeTab === "admin" && adminUser && (
               <AdminDashboard
                 config={config}
@@ -1058,8 +1144,14 @@ export default function App() {
                 onDeleteAdmin={handleDeleteAdmin}
                 rumors={rumors}
                 comments={comments}
+                fyeoPosts={fyeoPosts}
+                fyeoComments={fyeoComments}
                 onDeleteRumor={handleDeleteRumor}
                 onDeleteComment={handleDeleteComment}
+                onAddFyeoPost={(post) => setFyeoPosts(prev => [post, ...prev])}
+                onUpdateFyeoPost={(updated) => setFyeoPosts(prev => prev.map(p => p.id === updated.id ? updated : p))}
+                onDeleteFyeoPost={(id) => setFyeoPosts(prev => prev.filter(p => p.id !== id))}
+                onDeleteFyeoComment={(id) => setFyeoComments(prev => prev.filter(c => c.id !== id))}
               />
             )}
           </>

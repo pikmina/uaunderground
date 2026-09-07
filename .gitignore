@@ -6,6 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+firebase-applet-config.json
+firebase_applet_config.xml
+
 # Ignore runtime database folder, but NEVER ignore source data
 /data/
 !src/data/

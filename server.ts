@@ -205,6 +205,7 @@ app.get("/api/state", (req: Request, res: Response) => {
   // Retornar datos filtrados (sin emails privados ni contraseñas)
   const publicRumors = dbState.rumors.map(({ authorEmail, ...r }) => r);
   const publicComments = dbState.comments.map(({ authorEmail, ...c }) => c);
+  const publicFyeoComments = (dbState.fyeoComments || []).map(({ authorEmail, ...c }) => c);
 
   res.json({
     config: {
@@ -217,6 +218,8 @@ app.get("/api/state", (req: Request, res: Response) => {
     characters: dbState.characters,
     rumors: publicRumors,
     comments: publicComments,
+    fyeoPosts: dbState.fyeoPosts || [],
+    fyeoComments: publicFyeoComments,
   });
 });
 
@@ -379,6 +382,73 @@ app.post("/api/comments", (req: Request, res: Response) => {
   };
 
   dbState.comments.unshift(newComment);
+  saveDb(dbState);
+
+  const { authorEmail: _, ...publicComment } = newComment;
+  res.status(201).json(publicComment);
+});
+
+// Reaccionar a un comentario FYEO
+app.post("/api/fyeo-comments/:id/react", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { emoji } = req.body;
+  if (!dbState.fyeoComments) dbState.fyeoComments = [];
+  const comment = dbState.fyeoComments.find((c) => c.id === id);
+  if (!comment) {
+    return res.status(404).json({ error: "Comentario no encontrado" });
+  }
+  if (!comment.reactions) {
+    comment.reactions = { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 };
+  }
+  if (emoji in comment.reactions) {
+    comment.reactions[emoji as keyof typeof comment.reactions] =
+      (comment.reactions[emoji as keyof typeof comment.reactions] || 0) + 1;
+    saveDb(dbState);
+    const { authorEmail, ...publicComment } = comment;
+    return res.json(publicComment);
+  }
+  return res.status(400).json({ error: "Emoji no válido" });
+});
+
+// Publicar un comentario en un post FYEO
+app.post("/api/fyeo-comments", (req: Request, res: Response) => {
+  const { postId, authorName, authorEmail, content } = req.body;
+
+  if (!postId) {
+    return res.status(400).json({ error: "Falta el post destino." });
+  }
+
+  if (!authorEmail || !authorEmail.includes("@")) {
+    return res.status(400).json({
+      error: "Debes ingresar tu correo electrónico.",
+    });
+  }
+
+  if (!content || content.trim().length < 3) {
+    return res.status(400).json({
+      error: "El comentario debe tener al menos 3 caracteres.",
+    });
+  }
+
+  const violation = checkProhibited(content, dbState.config.prohibitedWords);
+  if (violation) {
+    return res.status(400).json({
+      error: `El comentario contiene un término restringido ("${violation}").`,
+    });
+  }
+
+  const newComment = {
+    id: `fyeo-comm-${Date.now()}`,
+    postId,
+    authorName: authorName?.trim() || "Alumno Anónimo",
+    authorEmail: authorEmail.trim().toLowerCase(),
+    content: content.trim(),
+    reactions: { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 },
+    timestamp: new Date().toISOString(),
+  };
+
+  if (!dbState.fyeoComments) dbState.fyeoComments = [];
+  dbState.fyeoComments.unshift(newComment);
   saveDb(dbState);
 
   const { authorEmail: _, ...publicComment } = newComment;
@@ -772,11 +842,73 @@ app.delete("/api/admin/comments/:id", authenticateAdmin, (req: Request, res: Res
   res.json({ success: true, message: "Comentario eliminado por moderación." });
 });
 
+// Admin FYEO CRUD
+app.post("/api/admin/fyeo-posts", authenticateAdmin, (req: Request, res: Response) => {
+  const { title, content, authorAlias, authorAvatar } = req.body;
+  
+  const newPost = {
+    id: `fyeo-${Date.now()}`,
+    title: title || "Sin Título",
+    content: content || "",
+    authorAlias: authorAlias || "System",
+    authorAvatar: authorAvatar || "https://images.unsplash.com/photo-1542282088-fe8426682b8f?w=400&auto=format&fit=crop&q=80",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (!dbState.fyeoPosts) dbState.fyeoPosts = [];
+  dbState.fyeoPosts.unshift(newPost);
+  saveDb(dbState);
+  res.status(201).json(newPost);
+});
+
+app.put("/api/admin/fyeo-posts/:id", authenticateAdmin, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const index = (dbState.fyeoPosts || []).findIndex((p) => p.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: "Post no encontrado." });
+  }
+
+  const existing = dbState.fyeoPosts[index];
+  const updated = {
+    ...existing,
+    ...req.body,
+    id: existing.id,
+    updatedAt: new Date().toISOString(),
+  };
+
+  dbState.fyeoPosts[index] = updated;
+  saveDb(dbState);
+  res.json(updated);
+});
+
+app.delete("/api/admin/fyeo-posts/:id", authenticateAdmin, (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (dbState.fyeoPosts) {
+    dbState.fyeoPosts = dbState.fyeoPosts.filter((p) => p.id !== id);
+  }
+  if (dbState.fyeoComments) {
+    dbState.fyeoComments = dbState.fyeoComments.filter((c) => c.postId !== id);
+  }
+  saveDb(dbState);
+  res.json({ success: true, message: "Post FYEO eliminado." });
+});
+
+app.delete("/api/admin/fyeo-comments/:id", authenticateAdmin, (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (dbState.fyeoComments) {
+    dbState.fyeoComments = dbState.fyeoComments.filter((c) => c.id !== id);
+  }
+  saveDb(dbState);
+  res.json({ success: true, message: "Comentario FYEO eliminado." });
+});
+
 // Moderación: Auditoría completa con emails para el administrador autenticado
 app.get("/api/admin/audit", authenticateAdmin, (req: Request, res: Response) => {
   res.json({
     rumors: dbState.rumors,
     comments: dbState.comments,
+    fyeoComments: dbState.fyeoComments || [],
   });
 });
 

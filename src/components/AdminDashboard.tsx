@@ -7,6 +7,8 @@ import {
   SystemConfig,
   Rumor,
   CharacterComment,
+  FyeoPost,
+  FyeoComment,
 } from "../types";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/card";
@@ -38,8 +40,10 @@ import {
   Search,
   X,
   Loader2,
+  FileText
 } from "lucide-react";
 import { getAttributeIcon, HEROIC_ICONS } from "../lib/heroIcons";
+import { TiptapEditor } from "./TiptapEditor";
 
 interface AdminDashboardProps {
   config: SystemConfig;
@@ -47,7 +51,7 @@ interface AdminDashboardProps {
   attributes: RankingAttribute[];
   admins: AdminUser[];
   currentAdmin: AdminUser;
-  initialSubTab?: "password" | "characters" | "attributes" | "admins" | "moderation";
+  initialSubTab?: "password" | "characters" | "attributes" | "admins" | "moderation" | "fyeo";
   initialEditingCharId?: string | null;
   onClearInitialEditingChar?: () => void;
   onUpdateConfig: (newConfig: Partial<SystemConfig>) => Promise<boolean>;
@@ -63,8 +67,14 @@ interface AdminDashboardProps {
   onDeleteAdmin: (id: string) => Promise<boolean>;
   rumors: Rumor[];
   comments: CharacterComment[];
+  fyeoPosts: FyeoPost[];
+  fyeoComments: FyeoComment[];
   onDeleteRumor: (id: string) => Promise<boolean>;
   onDeleteComment: (id: string) => Promise<boolean>;
+  onAddFyeoPost: (post: FyeoPost) => void;
+  onUpdateFyeoPost: (post: FyeoPost) => void;
+  onDeleteFyeoPost: (id: string) => void;
+  onDeleteFyeoComment: (id: string) => void;
 }
 
 const PRESET_AVATARS = [
@@ -100,14 +110,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onDeleteAdmin,
   rumors,
   comments,
+  fyeoPosts,
+  fyeoComments,
   onDeleteRumor,
   onDeleteComment,
+  onAddFyeoPost,
+  onUpdateFyeoPost,
+  onDeleteFyeoPost,
+  onDeleteFyeoComment,
 }) => {
-  const [activeTab, setActiveTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation">(
+  const [activeTab, setActiveTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation" | "fyeo">(
     initialSubTab || "characters"
   );
   const [characterView, setCharacterView] = useState<"list" | "create" | "edit">("list");
   const [charSearchTerm, setCharSearchTerm] = useState("");
+
+  const [fyeoView, setFyeoView] = useState<"list" | "create" | "edit">("list");
+  const [fyeoFormData, setFyeoFormData] = useState<Partial<FyeoPost>>({
+    title: "",
+    content: "",
+    authorAlias: "The Informant",
+    authorAvatar: "https://images.unsplash.com/photo-1542282088-fe8426682b8f?w=400&auto=format&fit=crop&q=80"
+  });
+  const [isSubmittingFyeo, setIsSubmittingFyeo] = useState(false);
 
   // Notifications
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -505,7 +530,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onValueChange={(v) => setActiveTab(v as any)}
         className="space-y-4"
       >
-        <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto p-1.5 gap-1 bg-zinc-900 border-3 border-black">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-6 w-full h-auto p-1.5 gap-1 bg-zinc-900 border-3 border-black">
           <TabsTrigger
             value="characters"
             className="text-xs font-black py-2 data-[state=active]:bg-amber-400 data-[state=active]:text-black text-white"
@@ -526,6 +551,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <AlertOctagon className="w-3.5 h-3.5 mr-1" />
             Moderación
+          </TabsTrigger>
+          <TabsTrigger
+            value="fyeo"
+            className="text-xs font-black py-2 data-[state=active]:bg-red-600 data-[state=active]:text-white text-white hover:text-red-400"
+          >
+            <FileText className="w-3.5 h-3.5 mr-1" />
+            FYEO
           </TabsTrigger>
           <TabsTrigger
             value="password"
@@ -2081,6 +2113,206 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ))}
             </div>
           </div>
+        </TabsContent>
+        {/* FYEO Tab */}
+        <TabsContent value="fyeo" className="space-y-4">
+          <Card className="border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] bg-white rounded-xl">
+            <CardHeader className="border-b-4 border-black bg-zinc-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="font-black text-2xl uppercase tracking-tight flex items-center gap-2">
+                  <Shield className="w-6 h-6 text-red-600" />
+                  For Your Eyes Only
+                </CardTitle>
+                <CardDescription className="font-bold text-zinc-600">
+                  Panel de administración de boletines y comunicados clasificados.
+                </CardDescription>
+              </div>
+              <Button
+                variant="hero"
+                onClick={() => {
+                  setFyeoView(fyeoView === "list" ? "create" : "list");
+                  if (fyeoView === "list") {
+                    setFyeoFormData({
+                      title: "",
+                      content: "",
+                      authorAlias: "The Informant",
+                      authorAvatar: "https://images.unsplash.com/photo-1542282088-fe8426682b8f?w=400&auto=format&fit=crop&q=80"
+                    });
+                  }
+                }}
+                className="font-black border-2 border-black whitespace-nowrap bg-red-600 hover:bg-red-500 text-white"
+              >
+                {fyeoView === "list" ? (
+                  <>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Nuevo Comunicado
+                  </>
+                ) : (
+                  <>
+                    <ArrowLeft className="w-4 h-4 mr-1" />
+                    Volver
+                  </>
+                )}
+              </Button>
+            </CardHeader>
+            <CardContent className="p-6">
+              {fyeoView === "list" && (
+                <div className="space-y-4">
+                  {fyeoPosts.length === 0 ? (
+                    <div className="text-center py-10 bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-xl">
+                      <FileText className="w-10 h-10 text-zinc-400 mx-auto mb-2" />
+                      <p className="font-bold text-zinc-500">No hay comunicados clasificados.</p>
+                    </div>
+                  ) : (
+                    fyeoPosts.map(post => {
+                      const postComments = fyeoComments.filter(c => c.postId === post.id);
+                      return (
+                        <div key={post.id} className="border-3 border-black p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-zinc-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <img src={post.authorAvatar} alt="Avatar" className="w-12 h-12 rounded-full border-2 border-black object-cover" />
+                            <div>
+                              <h4 className="font-black text-lg uppercase">{post.title}</h4>
+                              <div className="text-xs font-bold text-zinc-500 flex items-center gap-2">
+                                <span className="bg-zinc-200 px-2 py-0.5 rounded text-black">{post.authorAlias}</span>
+                                <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                                <span>• {postComments.length} Respuestas</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-2 border-black font-bold"
+                              onClick={() => {
+                                setFyeoFormData(post);
+                                setFyeoView("edit");
+                              }}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="border-2 border-black font-bold"
+                              onClick={() => requestDelete(
+                                post.id,
+                                "Eliminar Comunicado",
+                                `¿Eliminar "${post.title}"?`,
+                                async () => {
+                                  try {
+                                    const res = await fetch(`/api/admin/fyeo-posts/${post.id}`, {
+                                      method: "DELETE",
+                                      headers: {
+                                        "Authorization": `Bearer ${sessionStorage.getItem("ua_admin_token")}`,
+                                      }
+                                    });
+                                    if (res.ok) {
+                                      onDeleteFyeoPost(post.id);
+                                    } else {
+                                      throw new Error("No se pudo eliminar");
+                                    }
+                                  } catch (err) {
+                                    setStatusMessage({ text: "Error al eliminar", type: "error" });
+                                  }
+                                }
+                              )}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              )}
+
+              {(fyeoView === "create" || fyeoView === "edit") && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="font-black uppercase text-xs">Título del Comunicado</Label>
+                      <Input
+                        value={fyeoFormData.title}
+                        onChange={(e) => setFyeoFormData({ ...fyeoFormData, title: e.target.value })}
+                        placeholder="Ej. ALERTA: Brecha de Seguridad"
+                        className="font-bold border-2 border-black"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-black uppercase text-xs">Alias del Remitente</Label>
+                      <Input
+                        value={fyeoFormData.authorAlias}
+                        onChange={(e) => setFyeoFormData({ ...fyeoFormData, authorAlias: e.target.value })}
+                        className="font-bold border-2 border-black"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-black uppercase text-xs">Contenido</Label>
+                    <TiptapEditor
+                      content={fyeoFormData.content || ""}
+                      onChange={(html) => setFyeoFormData({ ...fyeoFormData, content: html })}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-4 border-t-2 border-black">
+                    <Button
+                      variant="outline"
+                      onClick={() => setFyeoView("list")}
+                      className="border-2 border-black font-bold"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      variant="hero"
+                      disabled={isSubmittingFyeo}
+                      className="border-2 border-black font-black"
+                      onClick={async () => {
+                        if (!fyeoFormData.title || !fyeoFormData.content) {
+                          setStatusMessage({ text: "Título y contenido son obligatorios.", type: "error" });
+                          return;
+                        }
+                        setIsSubmittingFyeo(true);
+                        try {
+                          const url = fyeoView === "edit" 
+                            ? `/api/admin/fyeo-posts/${fyeoFormData.id}`
+                            : "/api/admin/fyeo-posts";
+                          const res = await fetch(url, {
+                            method: fyeoView === "edit" ? "PUT" : "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              "Authorization": `Bearer ${sessionStorage.getItem("ua_admin_token")}`
+                            },
+                            body: JSON.stringify(fyeoFormData)
+                          });
+                          const data = await res.json();
+                          if (res.ok) {
+                            if (fyeoView === "edit") {
+                              onUpdateFyeoPost(data);
+                            } else {
+                              onAddFyeoPost(data);
+                            }
+                            setFyeoView("list");
+                            setStatusMessage({ text: "Comunicado guardado con éxito.", type: "success" });
+                          } else {
+                            setStatusMessage({ text: data.error || "Error al guardar.", type: "error" });
+                          }
+                        } catch (err) {
+                          setStatusMessage({ text: "Error de red", type: "error" });
+                        } finally {
+                          setIsSubmittingFyeo(false);
+                        }
+                      }}
+                    >
+                      {isSubmittingFyeo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                      Guardar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

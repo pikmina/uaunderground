@@ -223,4 +223,16 @@ export const initialData: AppStateData = {
       timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
     },
   ],
+  fyeoPosts: [
+    {
+      id: "fyeo-1",
+      title: "Bienvenidos a la Bitácora Clasificada",
+      content: "<p>Este es el registro oficial interno. Solo los que manejan los hilos publican aquí.</p><ul><li>Secreto 1</li><li>Secreto 2</li></ul><p>Mantengan los ojos abiertos.</p>",
+      authorAlias: "The Informant",
+      authorAvatar: "https://images.unsplash.com/photo-1542282088-fe8426682b8f?w=400&auto=format&fit=crop&q=80",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+  ],
+  fyeoComments: [],
 };
