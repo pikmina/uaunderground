@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AppStateData,
   Character,
@@ -33,6 +33,9 @@ import {
   UserPlus,
   Eye,
   Sparkles,
+  ArrowLeft,
+  Search,
+  X,
 } from "lucide-react";
 import { getAttributeIcon } from "./CharacterCard";
 
@@ -42,6 +45,9 @@ interface AdminDashboardProps {
   attributes: RankingAttribute[];
   admins: AdminUser[];
   currentAdmin: AdminUser;
+  initialSubTab?: "password" | "characters" | "attributes" | "admins" | "moderation";
+  initialEditingCharId?: string | null;
+  onClearInitialEditingChar?: () => void;
   onUpdateConfig: (newConfig: Partial<SystemConfig>) => Promise<boolean>;
   onCreateCharacter: (char: Partial<Character>) => Promise<boolean>;
   onUpdateCharacter: (id: string, char: Partial<Character>) => Promise<boolean>;
@@ -59,12 +65,26 @@ interface AdminDashboardProps {
   onDeleteComment: (id: string) => Promise<boolean>;
 }
 
+const PRESET_AVATARS = [
+  { name: "Izuku Midoriya", url: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80" },
+  { name: "Katsuki Bakugo", url: "https://images.unsplash.com/photo-1563089145-599997674d42?w=400&auto=format&fit=crop&q=80" },
+  { name: "Shoto Todoroki", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80" },
+  { name: "Ochaco Uraraka", url: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80" },
+  { name: "Eijiro Kirishima", url: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80" },
+  { name: "Momo Yaoyorozu", url: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&auto=format&fit=crop&q=80" },
+  { name: "Fumikage Tokoyami", url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80" },
+  { name: "Shota Aizawa", url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80" },
+];
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   config,
   characters,
   attributes,
   admins,
   currentAdmin,
+  initialSubTab,
+  initialEditingCharId,
+  onClearInitialEditingChar,
   onUpdateConfig,
   onCreateCharacter,
   onUpdateCharacter,
@@ -81,7 +101,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onDeleteRumor,
   onDeleteComment,
 }) => {
-  const [activeTab, setActiveTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation">("password");
+  const [activeTab, setActiveTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation">(
+    initialSubTab || "characters"
+  );
+  const [characterView, setCharacterView] = useState<"list" | "create" | "edit">("list");
+  const [charSearchTerm, setCharSearchTerm] = useState("");
 
   // Notifications
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -131,22 +155,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
   const [savingChar, setSavingChar] = useState(false);
 
-  // Load character into edit form
+  // Load character into edit form (Separate Edit Page)
   const startEditingCharacter = (char: Character) => {
     setEditingCharId(char.id);
+    const initialRankings: Record<string, number> = {};
+    attributes.forEach((attr) => {
+      initialRankings[attr.id] = char.rankings?.[attr.id] ?? 5;
+    });
     setCharForm({
       name: char.name,
-      alias: char.alias,
+      alias: char.alias || "",
       age: Number(char.age) || 16,
-      classCourse: char.classCourse,
+      classCourse: char.classCourse || "Clase 1-A (Heroísmo)",
       quirk: char.quirk || "",
-      avatarUrl: char.avatarUrl,
+      avatarUrl: char.avatarUrl || "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
       bio: char.bio || "",
-      rankings: { ...(char.rankings || {}) },
+      rankings: initialRankings,
     });
-    // Scroll to form
-    window.scrollTo({ top: 300, behavior: "smooth" });
+    setCharacterView("edit");
+    setActiveTab("characters");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const handleStartCreate = () => {
+    resetCharForm();
+    setCharacterView("create");
+    setActiveTab("characters");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleBackToList = () => {
+    resetCharForm();
+    setCharacterView("list");
+    if (onClearInitialEditingChar) {
+      onClearInitialEditingChar();
+    }
+  };
+
+  // Synchronize when initial props change
+  useEffect(() => {
+    if (initialEditingCharId) {
+      const found = characters.find((c) => c.id === initialEditingCharId);
+      if (found) {
+        startEditingCharacter(found);
+      }
+    } else if (initialSubTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialEditingCharId, initialSubTab, characters]);
 
   const resetCharForm = () => {
     setEditingCharId(null);
@@ -177,14 +233,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     let ok = false;
     if (editingCharId) {
       ok = await onUpdateCharacter(editingCharId, charForm);
-      if (ok) notify(`¡Personaje "${charForm.name}" actualizado correctamente!`);
+      if (ok) {
+        notify(`¡Personaje "${charForm.name}" actualizado correctamente!`);
+        setCharacterView("list");
+        if (onClearInitialEditingChar) {
+          onClearInitialEditingChar();
+        }
+      }
     } else {
       ok = await onCreateCharacter(charForm);
-      if (ok) notify(`¡Nuevo personaje "${charForm.name}" creado con éxito!`);
+      if (ok) {
+        notify(`¡Nuevo personaje "${charForm.name}" creado con éxito!`);
+        setCharacterView("list");
+        resetCharForm();
+      }
     }
     setSavingChar(false);
-    if (ok) resetCharForm();
-    else notify("Error al guardar personaje.", "error");
+    if (!ok) notify("Error al guardar personaje.", "error");
   };
 
   // 3. Dynamic Attribute Form State
@@ -338,13 +403,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       >
         <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto p-1.5 gap-1 bg-zinc-900 border-3 border-black">
           <TabsTrigger
-            value="password"
-            className="text-xs font-black py-2 data-[state=active]:bg-amber-400 data-[state=active]:text-black text-white"
-          >
-            <KeyRound className="w-3.5 h-3.5 mr-1" />
-            Contraseña
-          </TabsTrigger>
-          <TabsTrigger
             value="characters"
             className="text-xs font-black py-2 data-[state=active]:bg-amber-400 data-[state=active]:text-black text-white"
           >
@@ -359,398 +417,747 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             Atributos ({attributes.length})
           </TabsTrigger>
           <TabsTrigger
-            value="admins"
-            className="text-xs font-black py-2 data-[state=active]:bg-amber-400 data-[state=active]:text-black text-white"
-          >
-            <Shield className="w-3.5 h-3.5 mr-1" />
-            Admins ({admins.length})
-          </TabsTrigger>
-          <TabsTrigger
             value="moderation"
             className="text-xs font-black py-2 data-[state=active]:bg-amber-400 data-[state=active]:text-black text-white"
           >
             <AlertOctagon className="w-3.5 h-3.5 mr-1" />
             Moderación
           </TabsTrigger>
+          <TabsTrigger
+            value="password"
+            className="text-xs font-black py-2 data-[state=active]:bg-amber-400 data-[state=active]:text-black text-white"
+          >
+            <KeyRound className="w-3.5 h-3.5 mr-1" />
+            Contraseña
+          </TabsTrigger>
+          <TabsTrigger
+            value="admins"
+            className="text-xs font-black py-2 data-[state=active]:bg-amber-400 data-[state=active]:text-black text-white"
+          >
+            <Shield className="w-3.5 h-3.5 mr-1" />
+            Admins ({admins.length})
+          </TabsTrigger>
         </TabsList>
 
-        {/* ================= TAB 1: PASSWORD & ACCESS ================= */}
-        <TabsContent value="password">
-          <Card className="border-3 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
-            <CardHeader className="bg-amber-300 border-b-2 border-black">
-              <CardTitle className="text-xl font-black uppercase text-black flex items-center gap-2">
-                <KeyRound className="w-5 h-5" />
-                Contraseña de Acceso de la Comunidad
-              </CardTitle>
-              <CardDescription className="text-zinc-800 font-semibold text-xs">
-                Esta es la contraseña que deben ingresar los miembros del Discord para entrar al sitio. Cámbiala cuando sea necesario.
-              </CardDescription>
-            </CardHeader>
-
-            <form onSubmit={handleSaveConfig}>
-              <CardContent className="space-y-4 pt-5">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-black uppercase text-zinc-700">
-                    Nueva Contraseña Comunitaria
-                  </Label>
-                  <Input
-                    type="text"
-                    value={commPassword}
-                    onChange={(e) => setCommPassword(e.target.value)}
-                    placeholder="Escribe una nueva contraseña para actualizarla (o deja en blanco para mantener la actual)..."
-                    className="font-bold border-2 border-black text-sm"
-                  />
-                  <div className="flex items-center gap-2 pt-1 text-[11px] text-zinc-600 font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                    <span>Protegida con cifrado irreversible seguro (hash con salt).</span>
-                  </div>
-                  <p className="text-[11px] text-zinc-500 font-semibold">
-                    Última actualización: {new Date(config.lastPasswordChange).toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-black uppercase text-zinc-700">
-                    Pista de la Contraseña (Visible en la pantalla de bloqueo)
-                  </Label>
-                  <Input
-                    type="text"
-                    value={passHint}
-                    onChange={(e) => setPassHint(e.target.value)}
-                    placeholder="Ej: Busca la palabra clave en el canal #anuncios-rol..."
-                    className="border-2 border-black text-sm font-semibold"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-black uppercase text-zinc-700">
-                    Aviso Superior del Tablón (Mensaje Clandestino)
-                  </Label>
-                  <Textarea
-                    value={siteNotice}
-                    onChange={(e) => setSiteNotice(e.target.value)}
-                    placeholder="Aviso visible en la barra superior..."
-                    className="border-2 border-black text-xs font-semibold min-h-[60px]"
-                  />
-                </div>
-
-                <div className="pt-2">
-                  <Button
-                    type="submit"
-                    variant="hero"
-                    disabled={savingConfig}
-                    className="font-black uppercase"
-                  >
-                    <Save className="w-4 h-4 mr-1.5" />
-                    {savingConfig ? "Guardando..." : "Guardar Nueva Contraseña y Avisos"}
-                  </Button>
-                </div>
-              </CardContent>
-            </form>
-          </Card>
-        </TabsContent>
-
-        {/* ================= TAB 2: CHARACTERS CRUD ================= */}
+        {/* ================= TAB 1: CHARACTERS CRUD & SEPARATED EDIT/CREATE ================= */}
         <TabsContent value="characters" className="space-y-6">
-          {/* Character Editor Form */}
-          <Card className="border-3 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
-            <CardHeader className="bg-amber-300 border-b-2 border-black flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-xl font-black uppercase text-black">
-                  {editingCharId ? "Editar Ficha de Personaje" : "Crear Nuevo Personaje de Rol"}
-                </CardTitle>
-                <CardDescription className="text-zinc-800 font-semibold text-xs">
-                  {editingCharId
-                    ? "Modifica los datos y rankings. Al guardar, se reflejará al instante en todas las vistas."
-                    : "Agrega un nuevo estudiante o profesor a la lista y define sus puntuaciones iniciales."}
-                </CardDescription>
+          {/* VIEW 1: SEPARATE EDIT PAGE */}
+          {characterView === "edit" && (
+            <div className="space-y-6">
+              {/* Back navigation header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border-3 border-black p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBackToList}
+                    className="border-2 border-black font-black text-xs h-9 px-3 hover:bg-amber-200 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-1.5" />
+                    Volver a la lista de personajes
+                  </Button>
+                  <span className="text-zinc-300 font-bold hidden sm:inline">|</span>
+                  <div className="text-xs font-bold text-zinc-600 hidden sm:block">
+                    Editando ficha de <span className="font-black text-black uppercase">"{charForm.name || "Personaje"}"</span>
+                  </div>
+                </div>
+                <Badge variant="outline" className="border-2 border-black bg-amber-300 text-black font-black text-xs px-3 py-1 self-start sm:self-auto">
+                  Página de Edición Separada
+                </Badge>
               </div>
 
-              {editingCharId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={resetCharForm}
-                  className="border-2 border-black font-bold text-xs"
-                >
-                  Cancelar Edición
-                </Button>
-              )}
-            </CardHeader>
-
-            <form onSubmit={handleSaveCharacter}>
-              <CardContent className="p-5 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-black uppercase text-zinc-700">
-                      Nombre Completo *
-                    </Label>
-                    <Input
-                      type="text"
-                      value={charForm.name}
-                      onChange={(e) => setCharForm({ ...charForm, name: e.target.value })}
-                      placeholder="Ej: Katsuki Bakugo"
-                      className="border-2 border-black font-semibold text-sm"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-black uppercase text-zinc-700">
-                      Apodo Escolar / Héroe
-                    </Label>
-                    <Input
-                      type="text"
-                      value={charForm.alias}
-                      onChange={(e) => setCharForm({ ...charForm, alias: e.target.value })}
-                      placeholder="Ej: Lord Explosión / Chico Mitad"
-                      className="border-2 border-black font-semibold text-sm"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-black uppercase text-zinc-700">
-                      Edad
-                    </Label>
-                    <Input
-                      type="number"
-                      value={charForm.age}
-                      onChange={(e) => setCharForm({ ...charForm, age: Number(e.target.value) })}
-                      min={10}
-                      max={99}
-                      className="border-2 border-black font-semibold text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-black uppercase text-zinc-700">
-                      Curso / Clase
-                    </Label>
-                    <Input
-                      type="text"
-                      value={charForm.classCourse}
-                      onChange={(e) => setCharForm({ ...charForm, classCourse: e.target.value })}
-                      placeholder="Ej: Clase 1-A (Heroísmo)"
-                      className="border-2 border-black font-semibold text-sm"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs font-black uppercase text-zinc-700">
-                      Don / Quirk (Opcional)
-                    </Label>
-                    <Input
-                      type="text"
-                      value={charForm.quirk}
-                      onChange={(e) => setCharForm({ ...charForm, quirk: e.target.value })}
-                      placeholder="Ej: Explosión, Mitad Frío Mitad Caliente..."
-                      className="border-2 border-black font-semibold text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Avatar URL & Live Preview */}
-                <div className="space-y-1">
-                  <Label className="text-xs font-black uppercase text-zinc-700 flex items-center justify-between">
-                    <span>URL de la Foto / Avatar *</span>
-                    <span className="text-[10px] text-zinc-500 font-normal">
-                      (Pega enlace directo a imagen JPG/PNG/WebP)
-                    </span>
-                  </Label>
-                  <div className="flex gap-3 items-center">
-                    <Input
-                      type="url"
-                      value={charForm.avatarUrl}
-                      onChange={(e) => setCharForm({ ...charForm, avatarUrl: e.target.value })}
-                      placeholder="https://images.unsplash.com/..."
-                      className="border-2 border-black font-semibold text-xs flex-1"
-                      required
-                    />
-                    <div className="w-12 h-12 rounded border-2 border-black bg-zinc-200 overflow-hidden shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                      <img
-                        src={charForm.avatarUrl}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=80";
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-black uppercase text-zinc-700">
-                    Descripción / Biografía para la Ficha
-                  </Label>
-                  <Textarea
-                    value={charForm.bio}
-                    onChange={(e) => setCharForm({ ...charForm, bio: e.target.value })}
-                    placeholder="Escribe detalles del personaje, anécdotas o reputación en el campus..."
-                    className="border-2 border-black text-xs font-semibold min-h-[60px]"
+              {/* Edit Hero Header */}
+              <div className="bg-amber-300 border-3 border-black rounded-xl p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="w-16 h-16 rounded-lg border-2 border-black bg-zinc-200 overflow-hidden shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  <img
+                    src={charForm.avatarUrl}
+                    alt={charForm.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=80";
+                    }}
                   />
                 </div>
-
-                {/* Dynamic Attributes Sliders */}
-                <div className="border-2 border-black rounded-lg p-3 bg-amber-50/70 space-y-3">
-                  <h4 className="text-xs font-black uppercase text-black flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-amber-600" />
-                    Puntuaciones de Ranking (Escala 1 al 10)
-                  </h4>
-                  <p className="text-[11px] text-zinc-600 font-semibold">
-                    Ajusta los sliders de los atributos configurados actualmente:
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black uppercase text-black tracking-tight leading-none">
+                    Editar: {charForm.name || "Ficha de Personaje"}
+                  </h2>
+                  <p className="text-xs text-zinc-800 font-semibold mt-1">
+                    {charForm.alias ? `"${charForm.alias}" • ` : ""}{charForm.classCourse} • {charForm.age} años
                   </p>
+                  <p className="text-[11px] text-zinc-700 font-medium mt-0.5">
+                    Modifica los datos del personaje a continuación. Al presionar "Guardar Cambios del Personaje", todos los datos se sincronizan al instante en el perfil, en los comentarios, en los rankings y en la base de datos Firestore.
+                  </p>
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                    {attributes.map((attr) => {
-                      const currentVal = charForm.rankings[attr.id] ?? 5;
-                      return (
-                        <div
-                          key={attr.id}
-                          className="bg-white border-2 border-black rounded p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] space-y-2"
-                        >
-                          <div className="flex items-center justify-between text-xs font-black uppercase">
-                            <span className="flex items-center gap-1.5">
-                              {getAttributeIcon(attr.iconName)}
-                              <span>{attr.name}</span>
-                            </span>
-                            <span className="px-2 py-0.5 rounded bg-black text-white text-xs font-black">
-                              {currentVal} / 10
-                            </span>
-                          </div>
+              {/* Edit Form */}
+              <Card className="border-3 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
+                <CardHeader className="bg-zinc-100 border-b-2 border-black py-4">
+                  <CardTitle className="text-lg font-black uppercase text-black">
+                    Formulario de Edición de Ficha
+                  </CardTitle>
+                  <CardDescription className="text-zinc-700 font-semibold text-xs">
+                    Completa o actualiza la información básica y atributos de ranking del personaje.
+                  </CardDescription>
+                </CardHeader>
 
-                          <div className="px-1">
-                            <Slider
-                              value={[currentVal]}
-                              min={1}
-                              max={10}
-                              step={1}
-                              onValueChange={([val]) => {
-                                setCharForm({
-                                  ...charForm,
-                                  rankings: {
-                                    ...charForm.rankings,
-                                    [attr.id]: val,
-                                  },
-                                });
-                              }}
-                            />
-                          </div>
+                <form onSubmit={handleSaveCharacter}>
+                  <CardContent className="p-5 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Nombre Completo *
+                        </Label>
+                        <Input
+                          type="text"
+                          value={charForm.name}
+                          onChange={(e) => setCharForm({ ...charForm, name: e.target.value })}
+                          placeholder="Ej: Katsuki Bakugo"
+                          className="border-2 border-black font-semibold text-sm"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Apodo Escolar / Héroe
+                        </Label>
+                        <Input
+                          type="text"
+                          value={charForm.alias}
+                          onChange={(e) => setCharForm({ ...charForm, alias: e.target.value })}
+                          placeholder="Ej: Lord Explosión / Chico Mitad"
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Edad
+                        </Label>
+                        <Input
+                          type="number"
+                          value={charForm.age}
+                          onChange={(e) => setCharForm({ ...charForm, age: Number(e.target.value) })}
+                          min={10}
+                          max={99}
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Curso / Clase
+                        </Label>
+                        <Input
+                          type="text"
+                          value={charForm.classCourse}
+                          onChange={(e) => setCharForm({ ...charForm, classCourse: e.target.value })}
+                          placeholder="Ej: Clase 1-A (Heroísmo)"
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Don / Quirk (Opcional)
+                        </Label>
+                        <Input
+                          type="text"
+                          value={charForm.quirk}
+                          onChange={(e) => setCharForm({ ...charForm, quirk: e.target.value })}
+                          placeholder="Ej: Explosión, Mitad Frío Mitad Caliente..."
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Avatar URL, Live Preview & Presets */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-black uppercase text-zinc-700 flex items-center justify-between">
+                        <span>URL de la Foto / Avatar *</span>
+                        <span className="text-[10px] text-zinc-500 font-normal">
+                          (Pega un enlace directo o escoge un avatar preestablecido)
+                        </span>
+                      </Label>
+                      <div className="flex gap-3 items-center">
+                        <Input
+                          type="url"
+                          value={charForm.avatarUrl}
+                          onChange={(e) => setCharForm({ ...charForm, avatarUrl: e.target.value })}
+                          placeholder="https://images.unsplash.com/..."
+                          className="border-2 border-black font-semibold text-xs flex-1"
+                          required
+                        />
+                        <div className="w-14 h-14 rounded-lg border-2 border-black bg-zinc-200 overflow-hidden shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                          <img
+                            src={charForm.avatarUrl}
+                            alt="Vista previa"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=80";
+                            }}
+                          />
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                      </div>
 
-                <div className="flex items-center gap-3 pt-2">
-                  <Button
-                    type="submit"
-                    variant="hero"
-                    disabled={savingChar}
-                    className="font-black uppercase"
-                  >
-                    <Save className="w-4 h-4 mr-1" />
-                    {savingChar
-                      ? "Guardando..."
-                      : editingCharId
-                      ? "Guardar Cambios del Personaje"
-                      : "Crear Personaje"}
-                  </Button>
+                      {/* Preset avatar quick picks */}
+                      <div className="pt-1">
+                        <p className="text-[11px] font-bold text-zinc-600 mb-1.5">
+                          Avatares sugeridos para pruebas rápidas:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {PRESET_AVATARS.map((preset) => (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              onClick={() => setCharForm({ ...charForm, avatarUrl: preset.url })}
+                              className={`text-[10px] font-bold px-2 py-1 rounded border border-black transition-all cursor-pointer ${
+                                charForm.avatarUrl === preset.url
+                                  ? "bg-black text-white"
+                                  : "bg-zinc-100 hover:bg-zinc-200 text-black"
+                              }`}
+                            >
+                              {preset.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
 
-                  {editingCharId && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={resetCharForm}
-                      className="border-2 border-black font-bold"
-                    >
-                      Cancelar
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </form>
-          </Card>
-
-          {/* Characters List Table with Actions */}
-          <div className="bg-white border-3 border-black rounded-xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <h3 className="text-lg font-black uppercase text-black mb-3 flex items-center justify-between">
-              <span>Lista de Personajes Registrados ({characters.length})</span>
-            </h3>
-
-            <div className="divide-y-2 divide-zinc-200">
-              {characters.map((char) => (
-                <div
-                  key={char.id}
-                  className="py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded border-2 border-black overflow-hidden shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-zinc-200">
-                      <img
-                        src={char.avatarUrl}
-                        alt={char.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=80";
-                        }}
+                    <div className="space-y-1">
+                      <Label className="text-xs font-black uppercase text-zinc-700">
+                        Descripción / Biografía para la Ficha
+                      </Label>
+                      <Textarea
+                        value={charForm.bio}
+                        onChange={(e) => setCharForm({ ...charForm, bio: e.target.value })}
+                        placeholder="Escribe detalles del personaje, anécdotas o reputación en el campus..."
+                        className="border-2 border-black text-xs font-semibold min-h-[70px]"
                       />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-black text-base uppercase text-black">
-                          {char.name}
-                        </h4>
-                        <Badge variant="classUa" className="text-[10px]">
-                          {char.classCourse}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-zinc-600 font-semibold">
-                        "{char.alias}" • {char.age} años
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-1.5 self-end sm:self-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => startEditingCharacter(char)}
-                      className="border-2 border-black font-bold text-xs h-8 hover:bg-amber-200"
-                    >
-                      <Edit2 className="w-3.5 h-3.5 mr-1" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onDuplicateCharacter(char.id)}
-                      className="border-2 border-black font-bold text-xs h-8 hover:bg-sky-200"
-                    >
-                      <Copy className="w-3.5 h-3.5 mr-1" />
-                      Duplicar
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        if (confirm(`¿Eliminar a ${char.name}? Esta acción no se puede deshacer.`)) {
-                          onDeleteCharacter(char.id);
-                        }
-                      }}
-                      className="border-2 border-black font-bold text-xs h-8"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                    {/* Dynamic Attributes Sliders */}
+                    <div className="border-2 border-black rounded-lg p-3 bg-amber-50/70 space-y-3">
+                      <h4 className="text-xs font-black uppercase text-black flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-amber-600" />
+                        Puntuaciones de Ranking (Escala 1 al 10)
+                      </h4>
+                      <p className="text-[11px] text-zinc-600 font-semibold">
+                        Ajusta los sliders de cada atributo de ranking para este personaje:
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        {attributes.map((attr) => {
+                          const currentVal = charForm.rankings[attr.id] ?? 5;
+                          return (
+                            <div
+                              key={attr.id}
+                              className="bg-white border-2 border-black rounded p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] space-y-2"
+                            >
+                              <div className="flex items-center justify-between text-xs font-black uppercase">
+                                <span className="flex items-center gap-1.5">
+                                  {getAttributeIcon(attr.iconName)}
+                                  <span>{attr.name}</span>
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-black text-white text-xs font-black">
+                                  {currentVal} / 10
+                                </span>
+                              </div>
+
+                              <div className="px-1">
+                                <Slider
+                                  value={[currentVal]}
+                                  min={1}
+                                  max={10}
+                                  step={1}
+                                  onValueChange={([val]) => {
+                                    setCharForm({
+                                      ...charForm,
+                                      rankings: {
+                                        ...charForm.rankings,
+                                        [attr.id]: val,
+                                      },
+                                    });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-3 border-t border-zinc-200">
+                      <Button
+                        type="submit"
+                        variant="hero"
+                        disabled={savingChar}
+                        className="font-black uppercase text-sm px-6 py-2.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                      >
+                        <Save className="w-4 h-4 mr-1.5" />
+                        {savingChar ? "Guardando cambios..." : "Guardar Cambios del Personaje"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleBackToList}
+                        className="border-2 border-black font-bold text-sm h-10 px-4 cursor-pointer"
+                      >
+                        Cancelar y Volver
+                      </Button>
+                    </div>
+                  </CardContent>
+                </form>
+              </Card>
+            </div>
+          )}
+
+          {/* VIEW 2: SEPARATE CREATE PAGE */}
+          {characterView === "create" && (
+            <div className="space-y-6">
+              {/* Back navigation header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border-3 border-black p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBackToList}
+                    className="border-2 border-black font-black text-xs h-9 px-3 hover:bg-amber-200 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-1.5" />
+                    Volver a la lista de personajes
+                  </Button>
+                  <span className="text-zinc-300 font-bold hidden sm:inline">|</span>
+                  <div className="text-xs font-bold text-zinc-600 hidden sm:block">
+                    Creación de nueva ficha de personaje
                   </div>
                 </div>
-              ))}
+                <Badge variant="outline" className="border-2 border-black bg-emerald-300 text-black font-black text-xs px-3 py-1 self-start sm:self-auto">
+                  Nuevo Personaje
+                </Badge>
+              </div>
+
+              {/* Create Hero Header */}
+              <div className="bg-amber-300 border-3 border-black rounded-xl p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <h2 className="text-2xl font-black uppercase text-black tracking-tight leading-none flex items-center gap-2">
+                  <Plus className="w-6 h-6" />
+                  Crear Nuevo Personaje de Rol
+                </h2>
+                <p className="text-xs text-zinc-800 font-semibold mt-1">
+                  Ingresa los datos del nuevo estudiante o profesor de la UA y define las puntuaciones iniciales de cada ranking.
+                </p>
+              </div>
+
+              {/* Create Form */}
+              <Card className="border-3 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
+                <CardHeader className="bg-zinc-100 border-b-2 border-black py-4">
+                  <CardTitle className="text-lg font-black uppercase text-black">
+                    Formulario de Registro de Personaje
+                  </CardTitle>
+                  <CardDescription className="text-zinc-700 font-semibold text-xs">
+                    El personaje aparecerá inmediatamente en la galería pública y en las tablas de rankings.
+                  </CardDescription>
+                </CardHeader>
+
+                <form onSubmit={handleSaveCharacter}>
+                  <CardContent className="p-5 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Nombre Completo *
+                        </Label>
+                        <Input
+                          type="text"
+                          value={charForm.name}
+                          onChange={(e) => setCharForm({ ...charForm, name: e.target.value })}
+                          placeholder="Ej: Eijiro Kirishima"
+                          className="border-2 border-black font-semibold text-sm"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Apodo Escolar / Héroe
+                        </Label>
+                        <Input
+                          type="text"
+                          value={charForm.alias}
+                          onChange={(e) => setCharForm({ ...charForm, alias: e.target.value })}
+                          placeholder="Ej: Red Riot"
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Edad
+                        </Label>
+                        <Input
+                          type="number"
+                          value={charForm.age}
+                          onChange={(e) => setCharForm({ ...charForm, age: Number(e.target.value) })}
+                          min={10}
+                          max={99}
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Curso / Clase
+                        </Label>
+                        <Input
+                          type="text"
+                          value={charForm.classCourse}
+                          onChange={(e) => setCharForm({ ...charForm, classCourse: e.target.value })}
+                          placeholder="Ej: Clase 1-A (Heroísmo)"
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Don / Quirk (Opcional)
+                        </Label>
+                        <Input
+                          type="text"
+                          value={charForm.quirk}
+                          onChange={(e) => setCharForm({ ...charForm, quirk: e.target.value })}
+                          placeholder="Ej: Endurecimiento..."
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Avatar URL, Live Preview & Presets */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-black uppercase text-zinc-700 flex items-center justify-between">
+                        <span>URL de la Foto / Avatar *</span>
+                        <span className="text-[10px] text-zinc-500 font-normal">
+                          (Pega enlace directo o escoge un avatar de muestra)
+                        </span>
+                      </Label>
+                      <div className="flex gap-3 items-center">
+                        <Input
+                          type="url"
+                          value={charForm.avatarUrl}
+                          onChange={(e) => setCharForm({ ...charForm, avatarUrl: e.target.value })}
+                          placeholder="https://images.unsplash.com/..."
+                          className="border-2 border-black font-semibold text-xs flex-1"
+                          required
+                        />
+                        <div className="w-14 h-14 rounded-lg border-2 border-black bg-zinc-200 overflow-hidden shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                          <img
+                            src={charForm.avatarUrl}
+                            alt="Vista previa"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=80";
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Preset avatar quick picks */}
+                      <div className="pt-1">
+                        <p className="text-[11px] font-bold text-zinc-600 mb-1.5">
+                          Avatares sugeridos para pruebas rápidas:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {PRESET_AVATARS.map((preset) => (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              onClick={() => setCharForm({ ...charForm, avatarUrl: preset.url })}
+                              className={`text-[10px] font-bold px-2 py-1 rounded border border-black transition-all cursor-pointer ${
+                                charForm.avatarUrl === preset.url
+                                  ? "bg-black text-white"
+                                  : "bg-zinc-100 hover:bg-zinc-200 text-black"
+                              }`}
+                            >
+                              {preset.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs font-black uppercase text-zinc-700">
+                        Descripción / Biografía para la Ficha
+                      </Label>
+                      <Textarea
+                        value={charForm.bio}
+                        onChange={(e) => setCharForm({ ...charForm, bio: e.target.value })}
+                        placeholder="Escribe detalles del personaje, anécdotas o reputación en el campus..."
+                        className="border-2 border-black text-xs font-semibold min-h-[70px]"
+                      />
+                    </div>
+
+                    {/* Dynamic Attributes Sliders */}
+                    <div className="border-2 border-black rounded-lg p-3 bg-amber-50/70 space-y-3">
+                      <h4 className="text-xs font-black uppercase text-black flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-amber-600" />
+                        Puntuaciones de Ranking Iniciales (Escala 1 al 10)
+                      </h4>
+                      <p className="text-[11px] text-zinc-600 font-semibold">
+                        Ajusta los sliders de los atributos para la ficha:
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        {attributes.map((attr) => {
+                          const currentVal = charForm.rankings[attr.id] ?? 5;
+                          return (
+                            <div
+                              key={attr.id}
+                              className="bg-white border-2 border-black rounded p-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] space-y-2"
+                            >
+                              <div className="flex items-center justify-between text-xs font-black uppercase">
+                                <span className="flex items-center gap-1.5">
+                                  {getAttributeIcon(attr.iconName)}
+                                  <span>{attr.name}</span>
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-black text-white text-xs font-black">
+                                  {currentVal} / 10
+                                </span>
+                              </div>
+
+                              <div className="px-1">
+                                <Slider
+                                  value={[currentVal]}
+                                  min={1}
+                                  max={10}
+                                  step={1}
+                                  onValueChange={([val]) => {
+                                    setCharForm({
+                                      ...charForm,
+                                      rankings: {
+                                        ...charForm.rankings,
+                                        [attr.id]: val,
+                                      },
+                                    });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-3 border-t border-zinc-200">
+                      <Button
+                        type="submit"
+                        variant="hero"
+                        disabled={savingChar}
+                        className="font-black uppercase text-sm px-6 py-2.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4 mr-1.5" />
+                        {savingChar ? "Creando..." : "Crear Personaje"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleBackToList}
+                        className="border-2 border-black font-bold text-sm h-10 px-4 cursor-pointer"
+                      >
+                        Cancelar y Volver
+                      </Button>
+                    </div>
+                  </CardContent>
+                </form>
+              </Card>
             </div>
-          </div>
+          )}
+
+          {/* VIEW 3: MAIN CHARACTERS LIST VIEW */}
+          {characterView === "list" && (
+            <div className="space-y-4">
+              {/* Header Box with user-requested "Crear nuevo personaje" button */}
+              <div className="bg-white border-3 border-black rounded-xl p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-black uppercase text-black flex items-center gap-2">
+                    <Users className="w-5 h-5 text-amber-500" />
+                    Gestión de Personajes ({characters.length})
+                  </h3>
+                  <p className="text-xs text-zinc-600 font-semibold mt-1">
+                    Supervisa las fichas de los personajes, edítalas en una página separada o añade nuevas fichas.
+                  </p>
+                </div>
+
+                {/* The Button requested: "Crear nuevo personaje" */}
+                <Button
+                  type="button"
+                  variant="hero"
+                  onClick={handleStartCreate}
+                  className="font-black uppercase text-xs sm:text-sm px-4 sm:px-6 py-2.5 flex items-center gap-2 border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 transition-all cursor-pointer bg-amber-400 text-black shrink-0"
+                >
+                  <Plus className="w-5 h-5" />
+                  Crear nuevo personaje
+                </Button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="bg-white border-2 border-black rounded-xl p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-2">
+                <Search className="w-4 h-4 text-zinc-400 shrink-0 ml-1" />
+                <Input
+                  type="text"
+                  value={charSearchTerm}
+                  onChange={(e) => setCharSearchTerm(e.target.value)}
+                  placeholder="Buscar por nombre, apodo, don o clase..."
+                  className="border-none shadow-none focus-visible:ring-0 text-xs sm:text-sm font-semibold h-8 p-0"
+                />
+                {charSearchTerm && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCharSearchTerm("")}
+                    className="h-6 w-6 p-0 hover:bg-zinc-100 rounded-full"
+                  >
+                    <X className="w-3.5 h-3.5 text-zinc-500" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Characters List Table with Actions */}
+              <div className="bg-white border-3 border-black rounded-xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                {characters.filter((c) => {
+                  if (!charSearchTerm.trim()) return true;
+                  const term = charSearchTerm.toLowerCase();
+                  return (
+                    c.name.toLowerCase().includes(term) ||
+                    (c.alias && c.alias.toLowerCase().includes(term)) ||
+                    (c.quirk && c.quirk.toLowerCase().includes(term)) ||
+                    (c.classCourse && c.classCourse.toLowerCase().includes(term))
+                  );
+                }).length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-sm font-black uppercase text-zinc-400">
+                      No se encontraron personajes que coincidan con la búsqueda.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y-2 divide-zinc-200">
+                    {characters
+                      .filter((c) => {
+                        if (!charSearchTerm.trim()) return true;
+                        const term = charSearchTerm.toLowerCase();
+                        return (
+                          c.name.toLowerCase().includes(term) ||
+                          (c.alias && c.alias.toLowerCase().includes(term)) ||
+                          (c.quirk && c.quirk.toLowerCase().includes(term)) ||
+                          (c.classCourse && c.classCourse.toLowerCase().includes(term))
+                        );
+                      })
+                      .map((char) => (
+                        <div
+                          key={char.id}
+                          className="py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-zinc-50/60 p-2 rounded-lg transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-14 rounded-lg border-2 border-black overflow-hidden shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-zinc-200">
+                              <img
+                                src={char.avatarUrl}
+                                alt={char.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src =
+                                    "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=80";
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="font-black text-base uppercase text-black">
+                                  {char.name}
+                                </h4>
+                                <Badge variant="classUa" className="text-[10px]">
+                                  {char.classCourse}
+                                </Badge>
+                                {char.quirk && (
+                                  <Badge variant="outline" className="border-zinc-400 text-zinc-700 text-[10px] bg-zinc-50">
+                                    Don: {char.quirk}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-zinc-600 font-semibold mt-0.5">
+                                {char.alias ? `"${char.alias}" • ` : ""}{char.age} años
+                              </p>
+
+                              {/* Mini ranking attribute badges */}
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {attributes.slice(0, 4).map((attr) => {
+                                  const val = char.rankings?.[attr.id] ?? 5;
+                                  return (
+                                    <span
+                                      key={attr.id}
+                                      className="inline-flex items-center gap-1 text-[10px] font-black bg-zinc-100 border border-zinc-300 rounded px-1.5 py-0.5"
+                                    >
+                                      {getAttributeIcon(attr.iconName)}
+                                      <span className="truncate max-w-[60px]">{attr.name}:</span>
+                                      <span className="text-amber-700">{val}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Actions: Editar opens separate edit page */}
+                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <Button
+                              variant="hero"
+                              size="sm"
+                              onClick={() => startEditingCharacter(char)}
+                              className="border-2 border-black font-black text-xs h-8 px-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-amber-300 cursor-pointer"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onDuplicateCharacter(char.id)}
+                              className="border-2 border-black font-bold text-xs h-8 px-2.5 hover:bg-sky-200 cursor-pointer"
+                              title="Duplicar personaje"
+                            >
+                              <Copy className="w-3.5 h-3.5 mr-1" />
+                              Duplicar
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm(`¿Eliminar a ${char.name}? Esta acción no se puede deshacer.`)) {
+                                  onDeleteCharacter(char.id);
+                                }
+                              }}
+                              className="border-2 border-black font-bold text-xs h-8 px-2.5 cursor-pointer"
+                              title="Eliminar personaje"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ================= TAB 3: DYNAMIC ATTRIBUTES ================= */}
@@ -929,6 +1336,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             ))}
           </div>
+        </TabsContent>
+
+        {/* ================= TAB: PASSWORD & ACCESS ================= */}
+        <TabsContent value="password">
+          <Card className="border-3 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
+            <CardHeader className="bg-amber-300 border-b-2 border-black">
+              <CardTitle className="text-xl font-black uppercase text-black flex items-center gap-2">
+                <KeyRound className="w-5 h-5" />
+                Contraseña de Acceso de la Comunidad
+              </CardTitle>
+              <CardDescription className="text-zinc-800 font-semibold text-xs">
+                Esta es la contraseña que deben ingresar los miembros de la comunidad para entrar al sitio. Cámbiala cuando sea necesario.
+              </CardDescription>
+            </CardHeader>
+
+            <form onSubmit={handleSaveConfig}>
+              <CardContent className="space-y-4 pt-5">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-black uppercase text-zinc-700">
+                    Nueva Contraseña Comunitaria
+                  </Label>
+                  <Input
+                    type="text"
+                    value={commPassword}
+                    onChange={(e) => setCommPassword(e.target.value)}
+                    placeholder="Escribe una nueva contraseña para actualizarla (o deja en blanco para mantener la actual)..."
+                    className="font-bold border-2 border-black text-sm"
+                  />
+                  <div className="flex items-center gap-2 pt-1 text-[11px] text-zinc-600 font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                    <span>Protegida con cifrado irreversible seguro (hash con salt).</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-500 font-semibold">
+                    Última actualización: {new Date(config.lastPasswordChange).toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-black uppercase text-zinc-700">
+                    Pista de la Contraseña (Visible en la pantalla de bloqueo)
+                  </Label>
+                  <Input
+                    type="text"
+                    value={passHint}
+                    onChange={(e) => setPassHint(e.target.value)}
+                    placeholder="Ej: Busca la palabra clave en el canal #anuncios-rol..."
+                    className="border-2 border-black text-sm font-semibold"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-black uppercase text-zinc-700">
+                    Aviso Superior del Tablón (Mensaje Clandestino)
+                  </Label>
+                  <Textarea
+                    value={siteNotice}
+                    onChange={(e) => setSiteNotice(e.target.value)}
+                    placeholder="Aviso visible en la barra superior..."
+                    className="border-2 border-black text-xs font-semibold min-h-[60px]"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    variant="hero"
+                    disabled={savingConfig}
+                    className="font-black uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                  >
+                    <Save className="w-4 h-4 mr-1.5" />
+                    {savingConfig ? "Guardando..." : "Guardar Nueva Contraseña y Avisos"}
+                  </Button>
+                </div>
+              </CardContent>
+            </form>
+          </Card>
         </TabsContent>
 
         {/* ================= TAB 4: ADMIN USERS ================= */}

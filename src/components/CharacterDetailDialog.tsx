@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   Trash2,
   Lock,
+  Edit2,
 } from "lucide-react";
 
 interface CharacterDetailDialogProps {
@@ -49,6 +50,7 @@ interface CharacterDetailDialogProps {
   onReactRumor: (rumorId: string, emoji: EmojiReactionKey) => void;
   onDeleteComment?: (commId: string) => void;
   onOpenCreateRumor: (char: Character) => void;
+  onEditCharacter?: (char: Character) => void;
   prohibitedWords: string[];
 }
 
@@ -73,6 +75,7 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
   onReactRumor,
   onDeleteComment,
   onOpenCreateRumor,
+  onEditCharacter,
   prohibitedWords,
 }) => {
   if (!character) return null;
@@ -143,7 +146,7 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white text-zinc-950">
         {/* Header Hero */}
         <div className="bg-amber-400 p-4 border-b-3 border-black relative">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -180,12 +183,25 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                   "{character.alias}"
                 </p>
               )}
+              {adminUser && onEditCharacter && (
+                <div className="pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onEditCharacter(character)}
+                    className="bg-white hover:bg-amber-100 text-black border-2 border-black font-black text-xs shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5 h-7 px-2.5"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Editar Ficha de Personaje
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Tabs Control */}
-        <div className="p-4 pt-3">
+        <div className="p-4 pt-3 bg-white">
           <Tabs
             value={activeTab}
             onValueChange={(val) => setActiveTab(val as any)}

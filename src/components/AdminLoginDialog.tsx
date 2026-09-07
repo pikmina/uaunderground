@@ -53,7 +53,7 @@ export const AdminLoginDialog: React.FC<AdminLoginDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+      <DialogContent className="sm:max-w-md border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] bg-white text-zinc-950">
         <DialogHeader className="bg-zinc-900 text-white -m-6 p-4 mb-2 rounded-t-lg border-b-2 border-black">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-red-600 flex items-center justify-center text-white border border-black">

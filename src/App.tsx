@@ -100,6 +100,19 @@ export default function App() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [createRumorOpen, setCreateRumorOpen] = useState(false);
   const [createRumorTargetChar, setCreateRumorTargetChar] = useState<Character | null>(null);
+  const [adminInitialSubTab, setAdminInitialSubTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation">("characters");
+  const [adminEditingCharId, setAdminEditingCharId] = useState<string | null>(null);
+
+  const handleOpenEditCharacterInAdmin = (char: Character) => {
+    if (!adminUser) {
+      setShowAdminLogin(true);
+      return;
+    }
+    setAdminInitialSubTab("characters");
+    setAdminEditingCharId(char.id);
+    setActiveTab("admin");
+    setShowDetailDialog(false);
+  };
 
   // Fetch state from server / Firestore
   const fetchState = async () => {
@@ -825,9 +838,7 @@ export default function App() {
                           onSelect={openCharacterDetail}
                           onDropRumor={openCreateRumorForChar}
                           adminUser={adminUser}
-                          onEdit={(c) => {
-                            setActiveTab("admin");
-                          }}
+                          onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
                           onDuplicate={handleDuplicateCharacter}
                           onDelete={handleDeleteCharacter}
                           commentCount={charCommentsCount}
@@ -872,6 +883,9 @@ export default function App() {
                 attributes={attributes}
                 admins={adminsList}
                 currentAdmin={adminUser}
+                initialSubTab={adminInitialSubTab}
+                initialEditingCharId={adminEditingCharId}
+                onClearInitialEditingChar={() => setAdminEditingCharId(null)}
                 onUpdateConfig={handleUpdateConfig}
                 onCreateCharacter={handleCreateCharacter}
                 onUpdateCharacter={handleUpdateCharacter}
@@ -940,6 +954,7 @@ export default function App() {
         onReactRumor={handleReactRumor}
         onDeleteComment={handleDeleteComment}
         onOpenCreateRumor={openCreateRumorForChar}
+        onEditCharacter={handleOpenEditCharacterInAdmin}
         prohibitedWords={config.prohibitedWords}
       />
 

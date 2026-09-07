@@ -105,7 +105,7 @@ export const CreateRumorDialog: React.FC<CreateRumorDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+      <DialogContent className="max-w-md border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white text-zinc-950">
         <DialogHeader className="bg-amber-400 -m-6 p-4 mb-2 rounded-t-lg border-b-2 border-black">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-black text-amber-300 flex items-center justify-center border border-black shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
@@ -137,7 +137,7 @@ export const CreateRumorDialog: React.FC<CreateRumorDialogProps> = ({
             <select
               value={selectedCharId}
               onChange={(e) => setSelectedCharId(e.target.value)}
-              className="flex h-9 w-full rounded-md border-2 border-black bg-background px-3 py-1 text-sm font-semibold shadow-sm focus-visible:outline-none cursor-pointer"
+              className="flex h-9 w-full rounded-md border-2 border-black bg-white text-zinc-900 px-3 py-1 text-sm font-semibold shadow-sm focus-visible:outline-none cursor-pointer"
             >
               <option value="general">🏛️ Toda la Academia U.A. (General / Campus)</option>
               {characters.map((char) => (
