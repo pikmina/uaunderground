@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate, useLocation, matchPath } from "react-router-dom";
 import {
   Character,
   RankingAttribute,
@@ -66,6 +67,15 @@ import {
 } from "lucide-react";
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === "/") {
+      navigate("/alumnos", { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
   // Access and gatekeeper state
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     return sessionStorage.getItem("ua_unlocked") === "true";
@@ -105,7 +115,13 @@ export default function App() {
   const [adminsList, setAdminsList] = useState<AdminUser[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"characters" | "rumors" | "rankings" | "admin" | "fyeo">("characters");
+  
+  let activeTab: "characters" | "rumors" | "rankings" | "admin" | "fyeo" = "characters";
+  if (location.pathname.startsWith("/buzon")) activeTab = "rumors";
+  else if (location.pathname.startsWith("/news")) activeTab = "fyeo";
+  else if (location.pathname.startsWith("/rankings")) activeTab = "rankings";
+  else if (location.pathname.startsWith("/admin")) activeTab = "admin";
+  else if (location.pathname.startsWith("/alumnos")) activeTab = "characters";
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -171,7 +187,7 @@ export default function App() {
     }
     setAdminInitialSubTab("characters");
     setAdminEditingCharId(char.id);
-    setActiveTab("admin");
+    navigate("/admin");
     setShowDetailDialog(false);
   };
 
@@ -355,7 +371,7 @@ export default function App() {
     setAdminToken(null);
     sessionStorage.removeItem("ua_admin");
     sessionStorage.removeItem("ua_admin_token");
-    if (activeTab === "admin") setActiveTab("characters");
+    if (activeTab === "admin") navigate("/alumnos");
   };
 
   const handleLockSite = () => {
@@ -919,7 +935,33 @@ export default function App() {
     setSelectedCharacter(char);
     setDetailDialogInitialTab(tab);
     setShowDetailDialog(true);
+    
+    // URL friendlifier
+    const safeClass = char.classCourse.toLowerCase().replace(/[^a-z0-9]/g, '') || 'na';
+    const safeName = (char.alias || char.name).toLowerCase().replace(/[^a-z0-9]/g, '-');
+    navigate(`/alumnos/${safeClass}/${safeName}`);
   };
+
+  // URL listener for character profiles
+  useEffect(() => {
+    if (!loading && characters.length > 0) {
+      const match = matchPath("/alumnos/:classId/:name", location.pathname);
+      if (match) {
+        const { classId, name } = match.params;
+        const found = characters.find(c => {
+          const cClass = c.classCourse.toLowerCase().replace(/[^a-z0-9]/g, '') || 'na';
+          const cName = (c.alias || c.name).toLowerCase().replace(/[^a-z0-9]/g, '-');
+          return cClass === classId && cName === name;
+        });
+        if (found && (!showDetailDialog || selectedCharacter?.id !== found.id)) {
+          setSelectedCharacter(found);
+          setShowDetailDialog(true);
+        }
+      } else if (location.pathname === "/alumnos") {
+        setShowDetailDialog(false);
+      }
+    }
+  }, [location.pathname, loading, characters]);
 
   // Open rumor creation for specific character
   const openCreateRumorForChar = (char: Character) => {
@@ -965,8 +1007,6 @@ export default function App() {
     <div className="min-h-screen bg-zinc-100 flex flex-col font-sans selection:bg-amber-300 selection:text-black">
       {/* Top Navbar */}
       <TopNavbar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
         adminUser={adminUser}
         onAdminLogout={handleAdminLogout}
         siteNotice={config.siteNotice}
@@ -1045,12 +1085,12 @@ export default function App() {
                         onClick={() => {
                           setAdminEditingCharId(null);
                           setAdminInitialSubTab("characters");
-                          setActiveTab("admin");
+                          navigate("/admin");
                         }}
                         className="font-black uppercase text-xs shrink-0 border-2 border-black"
                       >
                         <Plus className="w-3.5 h-3.5 mr-1" />
-                        Crear Personaje
+                        Crear Alumno
                       </Button>
                     )}
                   </div>
@@ -1061,7 +1101,7 @@ export default function App() {
                   <div className="text-center py-16 bg-white border-3 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6">
                     <Users className="w-12 h-12 text-zinc-300 mx-auto mb-2" />
                     <h3 className="font-black text-lg text-black uppercase">
-                      No se encontraron personajes
+                      No se encontraron alumnos
                     </h3>
                     <p className="text-xs text-zinc-500 font-semibold mt-1 mb-4">
                       Intenta con otro término de búsqueda o cambia el filtro de clase.
@@ -1129,11 +1169,11 @@ export default function App() {
                 onPostComment={handlePostFyeoComment}
                 onCreatePost={() => {
                   setAdminInitialFyeoAction({ action: "create" });
-                  setActiveTab("admin");
+                  navigate("/admin");
                 }}
                 onEditPost={(postId) => {
                   setAdminInitialFyeoAction({ action: "edit", postId });
-                  setActiveTab("admin");
+                  navigate("/admin");
                 }}
                 onDeletePost={async (postId) => {
                   if (adminUser) {
@@ -1211,7 +1251,7 @@ export default function App() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => {
-                if (adminUser) setActiveTab("admin");
+                if (adminUser) navigate("/admin");
                 else setShowAdminLogin(true);
               }}
               className="text-zinc-800 hover:text-black font-black underline cursor-pointer flex items-center gap-1"
@@ -1235,7 +1275,10 @@ export default function App() {
       <CharacterDetailDialog
         character={selectedCharacter}
         open={showDetailDialog}
-        onOpenChange={setShowDetailDialog}
+        onOpenChange={(open) => {
+          setShowDetailDialog(open);
+          if (!open) navigate("/alumnos");
+        }}
         initialTab={detailDialogInitialTab}
         attributes={attributes}
         rumors={rumors}

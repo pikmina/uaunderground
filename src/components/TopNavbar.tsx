@@ -3,10 +3,9 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Shield, Users, MessageSquare, Trophy, Lock, LogOut } from "lucide-react";
 import { AdminUser } from "../types";
+import { Link, useLocation } from "react-router-dom";
 
 interface TopNavbarProps {
-  activeTab: "characters" | "rumors" | "rankings" | "admin" | "fyeo";
-  onTabChange: (tab: "characters" | "rumors" | "rankings" | "admin" | "fyeo") => void;
   adminUser: AdminUser | null;
   onAdminLogout: () => void;
   siteNotice: string;
@@ -14,13 +13,14 @@ interface TopNavbarProps {
 }
 
 export const TopNavbar: React.FC<TopNavbarProps> = ({
-  activeTab,
-  onTabChange,
   adminUser,
   onAdminLogout,
   siteNotice,
   onLockSite,
 }) => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   return (
     <header className="border-b-4 border-black bg-amber-400 select-none">
       {/* Notice Banner */}
@@ -63,45 +63,53 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         {/* Navigation Tabs */}
         <nav className="flex items-center gap-1 sm:gap-2 flex-wrap">
           <Button
-            variant={activeTab === "characters" ? "hero" : "outline"}
+            variant={currentPath.startsWith("/alumnos") || currentPath === "/" ? "hero" : "outline"}
             size="sm"
-            onClick={() => onTabChange("characters")}
+            asChild
             className="font-bold border-2 border-black"
           >
-            <Users className="w-4 h-4" />
-            <span>Personajes</span>
+            <Link to="/alumnos">
+              <Users className="w-4 h-4" />
+              <span>Alumnos</span>
+            </Link>
           </Button>
 
           <Button
-            variant={activeTab === "rumors" ? "hero" : "outline"}
+            variant={currentPath.startsWith("/buzon") ? "hero" : "outline"}
             size="sm"
-            onClick={() => onTabChange("rumors")}
+            asChild
             className="font-bold border-2 border-black"
           >
-            <MessageSquare className="w-4 h-4" />
-            <span>Buzón de Chismes</span>
+            <Link to="/buzon">
+              <MessageSquare className="w-4 h-4" />
+              <span>Buzón de Chismes</span>
+            </Link>
           </Button>
 
           {adminUser && (
             <Button
-              variant={activeTab === "fyeo" ? "heroDestructive" : "outline"}
+              variant={currentPath.startsWith("/news") ? "heroDestructive" : "outline"}
               size="sm"
-              onClick={() => onTabChange("fyeo")}
-              className={`font-bold border-2 border-black ${activeTab !== "fyeo" ? "text-red-600 hover:text-red-700 hover:bg-red-50" : ""}`}
+              asChild
+              className={`font-bold border-2 border-black ${!currentPath.startsWith("/news") ? "text-red-600 hover:text-red-700 hover:bg-red-50" : ""}`}
             >
-              <Shield className="w-4 h-4" />
-              <span>FYEO</span>
+              <Link to="/news">
+                <Shield className="w-4 h-4" />
+                <span>News</span>
+              </Link>
             </Button>
           )}
 
           <Button
-            variant={activeTab === "rankings" ? "hero" : "outline"}
+            variant={currentPath.startsWith("/rankings") ? "hero" : "outline"}
             size="sm"
-            onClick={() => onTabChange("rankings")}
+            asChild
             className="font-bold border-2 border-black"
           >
-            <Trophy className="w-4 h-4" />
-            <span>Rankings</span>
+            <Link to="/rankings">
+              <Trophy className="w-4 h-4" />
+              <span>Rankings</span>
+            </Link>
           </Button>
         </nav>
       </div>
@@ -118,9 +126,12 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             <span className="text-[11px] opacity-90 hidden md:inline">
               Puedes editar personajes, contraseñas y moderar contenido.
             </span>
+            <Link to="/admin" className="text-white hover:text-amber-300 underline cursor-pointer font-bold">
+              Panel
+            </Link>
             <button
               onClick={onAdminLogout}
-              className="flex items-center gap-1 text-white hover:text-amber-300 underline cursor-pointer"
+              className="flex items-center gap-1 text-white hover:text-amber-300 underline cursor-pointer ml-2"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Cerrar sesión</span>
