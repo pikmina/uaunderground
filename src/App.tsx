@@ -63,7 +63,6 @@ import {
   Trash2,
   Copy,
   X,
-  Plus,
 } from "lucide-react";
 
 export default function App() {
