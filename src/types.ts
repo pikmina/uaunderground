@@ -8,15 +8,19 @@ export interface RankingAttribute {
   color: string;
 }
 
+export type CharacterGroup = "Aspirantes a Héroes" | "Héroes" | "Celebridades" | "Otros";
+
 export interface Character {
   id: string;
   name: string;
   alias: string;
-  age: number | string;
-  classCourse: string;
+  group?: CharacterGroup;
+  classCourse: string; // Ocupación o Clase
   quirk?: string;
+  age?: number | string;
   avatarUrl: string;
   bio?: string;
+  category?: "alumno" | "hero";
   rankings: Record<string, number>;
   createdAt: string;
   updatedAt: string;

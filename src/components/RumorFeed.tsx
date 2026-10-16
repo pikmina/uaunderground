@@ -30,12 +30,24 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
   onDeleteRumor,
 }) => {
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
+  const [selectedGroup, setSelectedGroup] = useState<string>("all");
   const [filterSearch, setFilterSearch] = useState<string>("");
 
   const filteredRumors = rumors.filter((r) => {
-    if (selectedFilter === "all") return true;
-    if (selectedFilter === "general") return !r.characterId;
-    return r.characterId === selectedFilter;
+    // 1. Filter by specific character selection
+    if (selectedFilter !== "all") {
+      if (selectedFilter === "general") return !r.characterId;
+      return r.characterId === selectedFilter;
+    }
+    // 2. Filter by group selection
+    if (selectedGroup !== "all") {
+      if (!r.characterId) return false;
+      const char = characters.find((c) => c.id === r.characterId);
+      if (!char) return false;
+      const charGroup = char.group || (char.category === "hero" ? "Héroes" : "Aspirantes a Héroes");
+      return charGroup === selectedGroup;
+    }
+    return true;
   });
 
   const generalCount = rumors.filter((r) => !r.characterId).length;
@@ -50,10 +62,17 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
     return counts;
   }, [rumors]);
 
-  const visibleCharacters = characters.filter((c) =>
-    c.name.toLowerCase().includes(filterSearch.toLowerCase()) ||
-    c.classCourse.toLowerCase().includes(filterSearch.toLowerCase())
-  );
+  const visibleCharacters = characters.filter((c) => {
+    const matchesSearch =
+      c.name.toLowerCase().includes(filterSearch.toLowerCase()) ||
+      c.alias.toLowerCase().includes(filterSearch.toLowerCase()) ||
+      c.classCourse.toLowerCase().includes(filterSearch.toLowerCase());
+
+    const charGroup = c.group || (c.category === "hero" ? "Héroes" : "Aspirantes a Héroes");
+    const matchesGroup = selectedGroup === "all" || charGroup === selectedGroup;
+
+    return matchesSearch && matchesGroup;
+  });
 
   return (
     <div className="space-y-6">
@@ -63,14 +82,14 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-black uppercase tracking-tight text-black flex items-center gap-2">
               <Flame className="w-6 h-6 text-red-600" />
-              Muro Clandestino de Chismes
+              Herosphere • Muro de Chismes
             </h2>
-            <Badge variant="manga" className="text-xs">
+            <Badge variant="manga" className="text-xs bg-amber-300 text-black">
               {rumors.length} Leaks
             </Badge>
           </div>
           <p className="text-xs font-semibold text-zinc-600 mt-0.5">
-            Lo que se comenta en los pasillos de la UA. ¡Reacciona con emoticonos o añade tu chisme!
+            Lo que se comenta en las agencias, la prensa y la industria heroica. ¡Vota con reacciones o suelta tu chisme!
           </p>
         </div>
 
@@ -92,10 +111,10 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
             <div className="text-center py-16 bg-white border-3 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6">
               <MessageSquare className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
               <h3 className="font-black text-lg text-black uppercase">
-                No hay rumores en esta categoría
+                No hay publicaciones en esta categoría
               </h3>
               <p className="text-zinc-500 text-xs font-semibold max-w-sm mx-auto mt-1 mb-4">
-                ¿Escuchaste algo en los vestidores o en la cafetería? ¡Sé el primero en compartirlo!
+                ¿Escuchaste algún rumor en la agencia, alfombra roja o entrenamientos? ¡Sé el primero en compartirlo!
               </p>
               <Button variant="hero" onClick={onOpenCreateRumor} className="font-black text-xs">
                 Publicar el primer rumor
@@ -116,11 +135,11 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
                         <div className="flex items-center gap-1.5">
                           {char ? (
                             <Badge variant="classUa" className="text-[11px]">
-                              👤 {char.name} ({char.classCourse})
+                              👤 {char.name} ({char.group || "Héroe"} • {char.classCourse})
                             </Badge>
                           ) : (
                             <Badge variant="manga" className="text-[11px] bg-amber-300 text-black">
-                              🏛️ General Campus UA
+                              🏛️ Industria Heroica General
                             </Badge>
                           )}
                         </div>
@@ -187,19 +206,43 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
             <div className="flex items-center justify-between pb-2 border-b-2 border-zinc-100">
               <h3 className="font-black text-sm uppercase tracking-wide flex items-center gap-2 text-black">
                 <Filter className="w-4 h-4 text-amber-500" />
-                Filtros por Alumno
+                Filtros Muro
               </h3>
               <Badge variant="outline" className="text-[10px] font-black border-black bg-amber-100">
                 {filteredRumors.length} Leaks
               </Badge>
             </div>
 
+            {/* Filter by Group Tabs */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase text-zinc-500">Filtrar por Grupo:</span>
+              <div className="grid grid-cols-2 gap-1 text-[11px]">
+                {["all", "Héroes", "Celebridades", "Aspirantes a Héroes", "Otros"].map((grp) => (
+                  <button
+                    key={grp}
+                    type="button"
+                    onClick={() => {
+                      setSelectedGroup(grp);
+                      setSelectedFilter("all");
+                    }}
+                    className={`px-2 py-1 font-bold rounded border-2 border-black text-xs truncate cursor-pointer transition-all ${
+                      selectedGroup === grp
+                        ? "bg-amber-400 text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]"
+                        : "bg-zinc-50 hover:bg-zinc-100 text-zinc-800"
+                    }`}
+                  >
+                    {grp === "all" ? "Todos los Grupos" : grp}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Quick Filter Search */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-zinc-400" />
+            <div className="relative pt-1">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-3.5 text-zinc-400" />
               <input
                 type="text"
-                placeholder="Buscar alumno..."
+                placeholder="Buscar personaje..."
                 value={filterSearch}
                 onChange={(e) => setFilterSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-xs font-bold border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 bg-zinc-50"
@@ -207,7 +250,7 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
             </div>
 
             {/* Vertical Filter Buttons List */}
-            <div className="flex flex-col gap-1.5 max-h-[calc(100vh-250px)] overflow-y-auto pr-1 scrollbar-thin">
+            <div className="flex flex-col gap-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1 scrollbar-thin">
               {/* Filter: All */}
               <button
                 type="button"
@@ -219,7 +262,7 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
                 }`}
               >
                 <span className="flex items-center gap-2 truncate">
-                  <span>🔥</span> Todos los Rumores
+                  <span>🔥</span> Todas las Publicaciones
                 </span>
                 <span
                   className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${
@@ -232,7 +275,7 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
                 </span>
               </button>
 
-              {/* Filter: General UA */}
+              {/* Filter: General Industry */}
               <button
                 type="button"
                 onClick={() => setSelectedFilter("general")}
@@ -243,7 +286,7 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
                 }`}
               >
                 <span className="flex items-center gap-2 truncate">
-                  <span>🏛️</span> Toda la Academia U.A.
+                  <span>🏛️</span> Industria General
                 </span>
                 <span
                   className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${
@@ -259,7 +302,7 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
               {/* Divider if characters exist */}
               {visibleCharacters.length > 0 && (
                 <div className="pt-2 pb-1 text-[10px] font-black uppercase text-zinc-400 flex items-center gap-1">
-                  <Users className="w-3 h-3" /> Alumnos ({visibleCharacters.length})
+                  <Users className="w-3 h-3" /> Personajes ({visibleCharacters.length})
                 </div>
               )}
 
@@ -300,7 +343,7 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
 
               {visibleCharacters.length === 0 && filterSearch && (
                 <p className="text-[11px] text-zinc-400 font-bold text-center py-3">
-                  No se encontró ningún alumno con "{filterSearch}"
+                  No se encontró ningún personaje con "{filterSearch}"
                 </p>
               )}
             </div>

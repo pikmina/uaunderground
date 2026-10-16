@@ -36,7 +36,7 @@ interface CharacterDetailDialogProps {
   character: Character | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialTab?: "profile" | "comments" | "rumors";
+  initialTab?: "profile" | "opinions" | "comments" | "rumors";
   attributes: RankingAttribute[];
   rumors: Rumor[];
   comments: CharacterComment[];
@@ -80,11 +80,16 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
   onEditCharacter,
   prohibitedWords,
 }) => {
-  const [activeTab, setActiveTab] = useState<"profile" | "comments" | "rumors">(initialTab);
+  const getNormTab = (t?: string): "profile" | "opinions" => {
+    if (t === "opinions" || t === "comments" || t === "rumors") return "opinions";
+    return "profile";
+  };
+
+  const [activeTab, setActiveTab] = useState<"profile" | "opinions">(getNormTab(initialTab));
 
   React.useEffect(() => {
     if (open) {
-      setActiveTab(initialTab);
+      setActiveTab(getNormTab(initialTab));
     }
   }, [open, initialTab]);
 
@@ -174,9 +179,11 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                 <Badge variant="classUa" className="text-xs">
                   {character.classCourse}
                 </Badge>
-                <Badge variant="manga" className="text-xs bg-white text-black">
-                  {character.age} años
-                </Badge>
+                {character.age !== undefined && character.age !== null && String(character.age).trim() !== "" && (
+                  <Badge variant="manga" className="text-xs bg-white text-black">
+                    {character.age} años
+                  </Badge>
+                )}
                 {character.quirk && (
                   <Badge variant="outline" className="bg-amber-100 text-amber-900 border-black font-bold text-xs">
                     ⚡ {character.quirk}
@@ -215,18 +222,14 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
             onValueChange={(val) => setActiveTab(val as any)}
             className="w-full"
           >
-            <TabsList className="grid grid-cols-3 w-full mb-4">
+            <TabsList className="grid grid-cols-2 w-full mb-4">
               <TabsTrigger value="profile" className="text-xs sm:text-sm font-black">
                 <User className="w-3.5 h-3.5 mr-1" />
                 Ficha & Rankings
               </TabsTrigger>
-              <TabsTrigger value="rumors" className="text-xs sm:text-sm font-black">
-                <Flame className="w-3.5 h-3.5 mr-1" />
-                Rumores ({charRumors.length})
-              </TabsTrigger>
-              <TabsTrigger value="comments" className="text-xs sm:text-sm font-black">
+              <TabsTrigger value="opinions" className="text-xs sm:text-sm font-black">
                 <MessageCircle className="w-3.5 h-3.5 mr-1" />
-                Comentarios ({charComments.length})
+                Opiniones ({charRumors.length + charComments.length})
               </TabsTrigger>
             </TabsList>
 
@@ -235,7 +238,7 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
               {character.bio && (
                 <div className="bg-zinc-50 border-2 border-black rounded-lg p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                   <h4 className="text-xs font-black uppercase text-zinc-500 mb-1">
-                    Descripción / Ficha Escolar
+                    Descripción / Biografía
                   </h4>
                   <p className="text-sm font-semibold text-zinc-800 leading-relaxed">
                     {character.bio}
@@ -247,10 +250,10 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                 <div className="flex items-center justify-between pb-2 mb-3 border-b border-zinc-200">
                   <h4 className="text-sm font-black uppercase flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-amber-500" />
-                    Puntuaciones del Campus (1 a 10)
+                    Puntuaciones Herosphere (1 a 10)
                   </h4>
                   <span className="text-xs text-zinc-500 font-bold">
-                    Votaciones de la comunidad
+                    Valoración de la comunidad
                   </span>
                 </div>
 
@@ -299,88 +302,14 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                   className="font-black"
                 >
                   <Flame className="w-4 h-4 mr-1 text-red-600" />
-                  Soltar un rumor sobre {character.name}
+                  Dejar una opinión sobre {character.name}
                 </Button>
               </div>
             </TabsContent>
 
-            {/* TAB 2: RUMORS */}
-            <TabsContent value="rumors" className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black uppercase text-zinc-700">
-                  Chismes registrados sobre {character.name}
-                </h4>
-                <Button
-                  variant="hero"
-                  size="sm"
-                  onClick={() => {
-                    onOpenChange(false);
-                    onOpenCreateRumor(character);
-                  }}
-                  className="text-xs font-black"
-                >
-                  <Flame className="w-3.5 h-3.5 mr-1 text-red-600" />
-                  Añadir Rumor
-                </Button>
-              </div>
-
-              {charRumors.length === 0 ? (
-                <div className="text-center p-8 border-2 border-dashed border-zinc-300 rounded-lg bg-zinc-50">
-                  <Flame className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-zinc-600">
-                    Aún no hay rumores registrados sobre este estudiante.
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    ¡Sé el primero en revelar algún chisme del campus!
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {charRumors.map((rumor) => (
-                    <div
-                      key={rumor.id}
-                      className="border-2 border-black rounded-lg p-3 bg-amber-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                    >
-                      <div className="flex items-center justify-between text-xs text-zinc-500 font-bold mb-1.5 border-b border-amber-200 pb-1">
-                        <span className="text-black font-black flex items-center gap-1">
-                          👤 {rumor.authorName}
-                        </span>
-                        <span>{new Date(rumor.timestamp).toLocaleDateString()}</span>
-                      </div>
-                      <p className="text-sm font-semibold text-zinc-900 leading-snug">
-                        "{rumor.content}"
-                      </p>
-
-                      {/* Emoji Reactions */}
-                      <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-amber-200 flex-wrap">
-                        <span className="text-[11px] font-black uppercase text-zinc-500 mr-1">
-                          Reacciones:
-                        </span>
-                        {EMOJIS.map(({ key, label }) => {
-                          const count = rumor.reactions?.[key] || 0;
-                          return (
-                            <button
-                              key={key}
-                              type="button"
-                              onClick={() => onReactRumor(rumor.id, key)}
-                              className="px-2 py-0.5 rounded-full border border-black bg-white hover:bg-amber-200 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
-                              title={label}
-                            >
-                              <span>{key}</span>
-                              <span className="text-[11px] font-black text-black">{count}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* TAB 3: ANONYMOUS COMMENTS */}
-            <TabsContent value="comments" className="space-y-4">
-              {/* Comment Post Form */}
+            {/* TAB 2: UNIFIED OPINIONES */}
+            <TabsContent value="opinions" className="space-y-4">
+              {/* Post Opinion Form */}
               <form
                 onSubmit={handleCommentSubmit}
                 className="bg-zinc-50 border-2 border-black rounded-lg p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] space-y-3"
@@ -388,11 +317,11 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-black uppercase text-black flex items-center gap-1">
                     <MessageCircle className="w-3.5 h-3.5 text-amber-500" />
-                    Deja un comentario anónimo
+                    Publicar una opinión o chisme
                   </h4>
                   <span className="text-[10px] text-zinc-500 flex items-center gap-1">
                     <Lock className="w-3 h-3 text-zinc-400" />
-                    Correo confidencial para seguridad
+                    Correo confidencial
                   </span>
                 </div>
 
@@ -404,20 +333,20 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                 )}
                 {commentSuccess && (
                   <div className="bg-green-100 border border-green-500 text-green-800 text-xs p-2 rounded font-bold">
-                    ¡Comentario publicado en el muro del personaje!
+                    ¡Opinión publicada correctamente!
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <Label className="text-[11px] font-bold text-zinc-700">
-                      Tu Apodo en el Rol (Público)
+                      Tu Apodo / Firma (Público)
                     </Label>
                     <Input
                       type="text"
                       value={commentName}
                       onChange={(e) => setCommentName(e.target.value)}
-                      placeholder="Ej: Estudiante de 1-B, Chico del comedor"
+                      placeholder="Ej: Periodista Clandestino, Fan #1"
                       className="text-xs border-2 border-black"
                     />
                   </div>
@@ -438,12 +367,12 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
 
                 <div>
                   <Label className="text-[11px] font-bold text-zinc-700">
-                    Comentario
+                    Tu Opinión o Chisme
                   </Label>
                   <Textarea
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Escribe tu mensaje... (Recuerda mantener el respeto dentro del juego)"
+                    placeholder="Escribe tu mensaje u opinión sobre este personaje..."
                     className="text-xs border-2 border-black min-h-[60px]"
                     required
                   />
@@ -454,7 +383,20 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                   )}
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      onOpenChange(false);
+                      onOpenCreateRumor(character);
+                    }}
+                    className="font-bold text-xs border-2 border-black"
+                  >
+                    <Flame className="w-3.5 h-3.5 text-red-600 mr-1" />
+                    Publicar como Rumor del Muro
+                  </Button>
                   <Button
                     type="submit"
                     variant="hero"
@@ -463,65 +405,106 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                     className="font-black text-xs"
                   >
                     <Send className="w-3.5 h-3.5 mr-1" />
-                    {submittingComment ? "Publicando..." : "Publicar Comentario"}
+                    {submittingComment ? "Publicando..." : "Publicar Opinión"}
                   </Button>
                 </div>
               </form>
 
-              {/* Comments Thread */}
-              <div className="space-y-2.5">
-                {charComments.length === 0 ? (
-                  <p className="text-center text-xs text-zinc-500 font-bold py-6">
-                    No hay comentarios todavía en esta ficha. ¡Sé el primero en opinar!
-                  </p>
+              {/* Opinions Feed (Rumors + Comments Combined) */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black uppercase text-zinc-700">
+                  Opiniones y Chismes sobre {character.name}
+                </h4>
+
+                {charRumors.length === 0 && charComments.length === 0 ? (
+                  <div className="text-center p-8 border-2 border-dashed border-zinc-300 rounded-lg bg-zinc-50">
+                    <MessageCircle className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-zinc-600">
+                      Aún no hay opiniones o chismes registrados sobre este personaje.
+                    </p>
+                    <p className="text-xs text-zinc-400 mt-1">
+                      ¡Sé el primero en publicar tu punto de vista!
+                    </p>
+                  </div>
                 ) : (
-                  charComments.map((comm) => (
-                    <div
-                      key={comm.id}
-                      className="bg-white border-2 border-black rounded-lg p-2.5 shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]"
-                    >
-                      <div className="flex items-center justify-between text-xs text-zinc-500 font-semibold mb-1">
-                        <span className="font-black text-black">
-                          💬 {comm.authorName}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px]">
-                            {new Date(comm.timestamp).toLocaleDateString()}
+                  [
+                    ...charRumors.map((r) => ({
+                      id: r.id,
+                      type: "rumor" as const,
+                      authorName: r.authorName,
+                      content: r.content,
+                      reactions: r.reactions,
+                      timestamp: r.timestamp,
+                    })),
+                    ...charComments.map((c) => ({
+                      id: c.id,
+                      type: "comment" as const,
+                      authorName: c.authorName,
+                      content: c.content,
+                      reactions: c.reactions,
+                      timestamp: c.timestamp,
+                    })),
+                  ]
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className={`border-2 border-black rounded-lg p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+                          item.type === "rumor" ? "bg-amber-50" : "bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs text-zinc-500 font-bold mb-1.5 pb-1 border-b border-zinc-200">
+                          <span className="text-black font-black flex items-center gap-1.5">
+                            {item.type === "rumor" ? "🔥" : "💬"} {item.authorName}
+                            <span className="text-[10px] font-normal text-zinc-500 bg-zinc-100 px-1 py-0.2 rounded border border-zinc-200">
+                              {item.type === "rumor" ? "Rumor" : "Comentario"}
+                            </span>
                           </span>
-                          {adminUser && onDeleteComment && (
-                            <button
-                              onClick={() => onDeleteComment(comm.id)}
-                              title="Eliminar comentario (Modo Administrador)"
-                              className="text-red-500 hover:text-red-700 cursor-pointer p-0.5"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                            {adminUser && item.type === "comment" && onDeleteComment && (
+                              <button
+                                onClick={() => onDeleteComment(item.id)}
+                                title="Eliminar opinión (Modo Administrador)"
+                                className="text-red-500 hover:text-red-700 cursor-pointer p-0.5"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-xs sm:text-sm font-semibold text-zinc-900 leading-snug my-1">
+                          "{item.content}"
+                        </p>
+
+                        {/* Emoji Reactions */}
+                        <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-zinc-100 flex-wrap">
+                          <span className="text-[10px] font-black uppercase text-zinc-400 mr-1">
+                            Vota:
+                          </span>
+                          {EMOJIS.map(({ key, label }) => {
+                            const count = item.reactions?.[key] || 0;
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() =>
+                                  item.type === "rumor"
+                                    ? onReactRumor(item.id, key)
+                                    : onReactComment(item.id, key)
+                                }
+                                className="px-2 py-0.5 rounded-full border border-black bg-white hover:bg-amber-200 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
+                                title={label}
+                              >
+                                <span>{key}</span>
+                                <span className="text-[10px] font-black text-black">{count}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                      <p className="text-xs font-medium text-zinc-800">
-                        {comm.content}
-                      </p>
-
-                      {/* Comment Emoji Reactions */}
-                      <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-zinc-100 flex-wrap">
-                        {EMOJIS.map(({ key }) => {
-                          const count = comm.reactions?.[key] || 0;
-                          return (
-                            <button
-                              key={key}
-                              type="button"
-                              onClick={() => onReactComment(comm.id, key)}
-                              className="px-1.5 py-0.5 rounded border border-zinc-400 bg-zinc-50 hover:bg-amber-100 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                            >
-                              <span>{key}</span>
-                              <span className="text-[10px] font-black">{count}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
+                    ))
                 )}
               </div>
             </TabsContent>

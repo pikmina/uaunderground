@@ -77,14 +77,14 @@ export default function App() {
 
   // Access and gatekeeper state
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
-    return sessionStorage.getItem("ua_unlocked") === "true";
+    return sessionStorage.getItem("ua_unlocked") === "true" || localStorage.getItem("ua_unlocked") === "true";
   });
   const [adminUser, setAdminUser] = useState<AdminUser | null>(() => {
-    const saved = sessionStorage.getItem("ua_admin");
+    const saved = sessionStorage.getItem("ua_admin") || localStorage.getItem("ua_admin");
     return saved ? JSON.parse(saved) : null;
   });
   const [adminToken, setAdminToken] = useState<string | null>(() => {
-    return sessionStorage.getItem("ua_admin_token");
+    return sessionStorage.getItem("ua_admin_token") || localStorage.getItem("ua_admin_token");
   });
   const [showAdminLogin, setShowAdminLogin] = useState(false);
 
@@ -115,12 +115,14 @@ export default function App() {
 
   const [loading, setLoading] = useState(true);
   
-  let activeTab: "characters" | "rumors" | "rankings" | "admin" | "fyeo" = "rumors";
+  let activeTab: "rumors" | "heroes" | "celebridades" | "aspirantes" | "rankings" | "admin" | "fyeo" = "rumors";
   if (location.pathname.startsWith("/muro") || location.pathname.startsWith("/buzon")) activeTab = "rumors";
+  else if (location.pathname.startsWith("/heroes")) activeTab = "heroes";
+  else if (location.pathname.startsWith("/celebridades")) activeTab = "celebridades";
+  else if (location.pathname.startsWith("/aspirantes") || location.pathname.startsWith("/alumnos")) activeTab = "aspirantes";
   else if (location.pathname.startsWith("/news")) activeTab = "fyeo";
   else if (location.pathname.startsWith("/rankings")) activeTab = "rankings";
   else if (location.pathname.startsWith("/admin")) activeTab = "admin";
-  else if (location.pathname.startsWith("/alumnos")) activeTab = "characters";
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,7 +131,7 @@ export default function App() {
   // Dialogs
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [detailDialogInitialTab, setDetailDialogInitialTab] = useState<"profile" | "comments" | "rumors">("profile");
+  const [detailDialogInitialTab, setDetailDialogInitialTab] = useState<"profile" | "opinions">("profile");
   const [createRumorOpen, setCreateRumorOpen] = useState(false);
   const [createRumorTargetChar, setCreateRumorTargetChar] = useState<Character | null>(null);
   const [adminInitialSubTab, setAdminInitialSubTab] = useState<"password" | "characters" | "attributes" | "admins" | "moderation" | "fyeo">("characters");
@@ -285,6 +287,7 @@ export default function App() {
       if (fbResult.success) {
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
+        localStorage.setItem("ua_unlocked", "true");
         navigate("/muro");
         // Notify API in background if online
         fetch("/api/auth/community", {
@@ -308,6 +311,7 @@ export default function App() {
       if (res.ok && data.success) {
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
+        localStorage.setItem("ua_unlocked", "true");
         navigate("/muro");
         return { success: true };
       }
@@ -324,12 +328,16 @@ export default function App() {
       const fbAuth = await adminLoginFirestore(email, pass);
       if (fbAuth.success && fbAuth.user) {
         setAdminUser(fbAuth.user);
-        setAdminToken(fbAuth.token || `fb_token_${Date.now()}`);
+        const token = fbAuth.token || `fb_token_${Date.now()}`;
+        setAdminToken(token);
         sessionStorage.setItem("ua_admin", JSON.stringify(fbAuth.user));
-        sessionStorage.setItem("ua_admin_token", fbAuth.token || `fb_token_${Date.now()}`);
+        sessionStorage.setItem("ua_admin_token", token);
+        localStorage.setItem("ua_admin", JSON.stringify(fbAuth.user));
+        localStorage.setItem("ua_admin_token", token);
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
-        fetchAdminData(fbAuth.token);
+        localStorage.setItem("ua_unlocked", "true");
+        fetchAdminData(token);
         navigate("/muro");
         // Ping API in background
         fetch("/api/admin/login", {
@@ -354,11 +362,14 @@ export default function App() {
         setAdminUser(data.user);
         setAdminToken(data.token);
         sessionStorage.setItem("ua_admin", JSON.stringify(data.user));
+        localStorage.setItem("ua_admin", JSON.stringify(data.user));
         if (data.token) {
           sessionStorage.setItem("ua_admin_token", data.token);
+          localStorage.setItem("ua_admin_token", data.token);
         }
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
+        localStorage.setItem("ua_unlocked", "true");
         fetchAdminData(data.token);
         navigate("/muro");
         return { success: true };
@@ -374,12 +385,15 @@ export default function App() {
     setAdminToken(null);
     sessionStorage.removeItem("ua_admin");
     sessionStorage.removeItem("ua_admin_token");
-    if (activeTab === "admin") navigate("/alumnos");
+    localStorage.removeItem("ua_admin");
+    localStorage.removeItem("ua_admin_token");
+    if (activeTab === "admin") navigate("/aspirantes");
   };
 
   const handleLockSite = () => {
     setIsUnlocked(false);
     sessionStorage.removeItem("ua_unlocked");
+    localStorage.removeItem("ua_unlocked");
   };
 
   // Reactions
@@ -934,21 +948,29 @@ export default function App() {
   };
 
   // Open detail dialog
-  const openCharacterDetail = (char: Character, tab: "profile" | "comments" | "rumors" = "profile") => {
+  const openCharacterDetail = (char: Character, tab: "profile" | "opinions" | "comments" | "rumors" = "profile") => {
     setSelectedCharacter(char);
-    setDetailDialogInitialTab(tab);
+    const normTab = (tab === "opinions" || tab === "comments" || tab === "rumors") ? "opinions" : "profile";
+    setDetailDialogInitialTab(normTab);
     setShowDetailDialog(true);
     
     // URL friendlifier
     const safeClass = char.classCourse.toLowerCase().replace(/[^a-z0-9]/g, '') || 'na';
     const safeName = (char.alias || char.name).toLowerCase().replace(/[^a-z0-9]/g, '-');
-    navigate(`/alumnos/${safeClass}/${safeName}`);
+    let basePath = "/aspirantes";
+    if (char.group === "Héroes") basePath = "/heroes";
+    else if (char.group === "Celebridades") basePath = "/celebridades";
+    else if (char.category === "hero") basePath = "/heroes";
+    navigate(`${basePath}/${safeClass}/${safeName}`);
   };
 
   // URL listener for character profiles
   useEffect(() => {
     if (!loading && characters.length > 0) {
-      const match = matchPath("/alumnos/:classId/:name", location.pathname);
+      const matchAspirante = matchPath("/aspirantes/:classId/:name", location.pathname) || matchPath("/alumnos/:classId/:name", location.pathname);
+      const matchHero = matchPath("/heroes/:classId/:name", location.pathname) || matchPath("/herosphere/:classId/:name", location.pathname);
+      const matchCeleb = matchPath("/celebridades/:classId/:name", location.pathname);
+      const match = matchAspirante || matchHero || matchCeleb;
       if (match) {
         const { classId, name } = match.params;
         const found = characters.find(c => {
@@ -960,7 +982,7 @@ export default function App() {
           setSelectedCharacter(found);
           setShowDetailDialog(true);
         }
-      } else if (location.pathname === "/alumnos") {
+      } else if (["/aspirantes", "/alumnos", "/heroes", "/celebridades", "/herosphere"].includes(location.pathname)) {
         setShowDetailDialog(false);
       }
     }
@@ -972,11 +994,44 @@ export default function App() {
     setCreateRumorOpen(true);
   };
 
-  // Unique classes for filtering
-  const availableClasses = Array.from(new Set(characters.map((c) => c.classCourse))).filter(Boolean);
+  // Grouped Characters Lists
+  const aspirantesCharacters = characters.filter((c) => c.group === "Aspirantes a Héroes" || (!c.group && c.category !== "hero"));
+  const heroesCharacters = characters.filter((c) => c.group === "Héroes" || (!c.group && c.category === "hero"));
+  const celebridadesCharacters = characters.filter((c) => c.group === "Celebridades");
 
-  // Filtered characters
-  const filteredCharacters = characters.filter((char) => {
+  // Unique occupations / classes for filtering
+  const availableAspirantesClasses = Array.from(new Set(aspirantesCharacters.map((c) => c.classCourse))).filter(Boolean);
+  const availableHeroesClasses = Array.from(new Set(heroesCharacters.map((c) => c.classCourse))).filter(Boolean);
+  const availableCelebridadesClasses = Array.from(new Set(celebridadesCharacters.map((c) => c.classCourse))).filter(Boolean);
+
+  // Filtered Aspirantes
+  const filteredAspirantes = aspirantesCharacters.filter((char) => {
+    const matchesSearch =
+      char.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      char.alias.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (char.quirk && char.quirk.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesClass =
+      selectedClassFilter === "all" || char.classCourse === selectedClassFilter;
+
+    return matchesSearch && matchesClass;
+  });
+
+  // Filtered Heroes
+  const filteredHeroes = heroesCharacters.filter((char) => {
+    const matchesSearch =
+      char.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      char.alias.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (char.quirk && char.quirk.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesClass =
+      selectedClassFilter === "all" || char.classCourse === selectedClassFilter;
+
+    return matchesSearch && matchesClass;
+  });
+
+  // Filtered Celebridades
+  const filteredCelebridades = celebridadesCharacters.filter((char) => {
     const matchesSearch =
       char.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       char.alias.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1025,35 +1080,38 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* VIEW 1: CHARACTERS DIRECTORY */}
-            {activeTab === "characters" && (
+            {/* VIEW 1: ASPIRANTES A HÉROES */}
+            {activeTab === "aspirantes" && (
               <div className="space-y-6">
-                {/* Search & Action Bar */}
-                <div className="bg-white border-3 border-black p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                  <div className="flex-1 relative">
+                {/* Search & Filter Bar */}
+                <div className="bg-white border-3 border-black p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-3">
+                  {/* 100% Width Search Bar */}
+                  <div className="relative w-full">
                     <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-3" />
                     <Input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Buscar por nombre de alumno, apodo o don (quirk)..."
-                      className="pl-9 text-sm font-semibold border-2 border-black"
+                      placeholder="Buscar por nombre de aspirante, apodo o don (quirk)..."
+                      className="w-full pl-9 text-sm font-semibold border-2 border-black"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1">
+                  {/* Class Filters Below */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 max-w-full">
+                      <span className="text-xs font-black uppercase text-zinc-500 mr-1 shrink-0">Clase / Curso:</span>
                       <button
                         onClick={() => setSelectedClassFilter("all")}
-                        className={`px-3 py-1 text-xs font-bold rounded-lg border-2 border-black transition-all cursor-pointer ${
+                        className={`px-3 py-1 text-xs font-bold rounded-lg border-2 border-black transition-all cursor-pointer shrink-0 ${
                           selectedClassFilter === "all"
                             ? "bg-amber-400 text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] font-black"
                             : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                         }`}
                       >
-                        Todas las Clases ({characters.length})
+                        Todas las Clases ({aspirantesCharacters.length})
                       </button>
-                      {availableClasses.map((cls) => (
+                      {availableAspirantesClasses.map((cls) => (
                         <button
                           key={cls}
                           onClick={() => setSelectedClassFilter(cls)}
@@ -1068,19 +1126,6 @@ export default function App() {
                       ))}
                     </div>
 
-                    <Button
-                      variant="hero"
-                      size="sm"
-                      onClick={() => {
-                        setCreateRumorTargetChar(null);
-                        setCreateRumorOpen(true);
-                      }}
-                      className="font-black uppercase text-xs shrink-0"
-                    >
-                      <Flame className="w-3.5 h-3.5 mr-1 text-red-600" />
-                      Soltar Chisme
-                    </Button>
-                    
                     {adminUser && (
                       <Button
                         variant="hero"
@@ -1093,18 +1138,18 @@ export default function App() {
                         className="font-black uppercase text-xs shrink-0 border-2 border-black"
                       >
                         <Plus className="w-3.5 h-3.5 mr-1" />
-                        Crear Alumno
+                        Crear Personaje
                       </Button>
                     )}
                   </div>
                 </div>
 
                 {/* Character Cards Grid */}
-                {filteredCharacters.length === 0 ? (
+                {filteredAspirantes.length === 0 ? (
                   <div className="text-center py-16 bg-white border-3 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6">
                     <Users className="w-12 h-12 text-zinc-300 mx-auto mb-2" />
                     <h3 className="font-black text-lg text-black uppercase">
-                      No se encontraron alumnos
+                      No se encontraron aspirantes
                     </h3>
                     <p className="text-xs text-zinc-500 font-semibold mt-1 mb-4">
                       Intenta con otro término de búsqueda o cambia el filtro de clase.
@@ -1122,7 +1167,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {filteredCharacters.map((char) => {
+                    {filteredAspirantes.map((char) => {
                       const charRumorsCount = rumors.filter((r) => r.characterId === char.id).length;
                       const charCommentsCount = comments.filter((c) => c.characterId === char.id).length;
                       return (
@@ -1146,7 +1191,229 @@ export default function App() {
               </div>
             )}
 
-            {/* VIEW 2: RUMORS FEED */}
+            {/* VIEW 2: HÉROES DIRECTORY */}
+            {activeTab === "heroes" && (
+              <div className="space-y-6">
+                {/* Search & Filter Bar */}
+                <div className="bg-white border-3 border-black p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-3">
+                  {/* 100% Width Search Bar */}
+                  <div className="relative w-full">
+                    <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-3" />
+                    <Input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Buscar por héroe, agencia, apodo o don (quirk)..."
+                      className="w-full pl-9 text-sm font-semibold border-2 border-black"
+                    />
+                  </div>
+
+                  {/* Agency / Category Filters Below */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 max-w-full">
+                      <span className="text-xs font-black uppercase text-zinc-500 mr-1 shrink-0">Agencia / Rol:</span>
+                      <button
+                        onClick={() => setSelectedClassFilter("all")}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg border-2 border-black transition-all cursor-pointer shrink-0 ${
+                          selectedClassFilter === "all"
+                            ? "bg-amber-400 text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] font-black"
+                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                        }`}
+                      >
+                        Todos ({heroesCharacters.length})
+                      </button>
+                      {availableHeroesClasses.map((agency) => (
+                        <button
+                          key={agency}
+                          onClick={() => setSelectedClassFilter(agency)}
+                          className={`px-3 py-1 text-xs font-bold rounded-lg border-2 border-black transition-all cursor-pointer shrink-0 ${
+                            selectedClassFilter === agency
+                              ? "bg-amber-400 text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] font-black"
+                              : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                          }`}
+                        >
+                          {agency}
+                        </button>
+                      ))}
+                    </div>
+
+                    {adminUser && (
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        onClick={() => {
+                          setAdminEditingCharId(null);
+                          setAdminInitialSubTab("characters");
+                          navigate("/admin");
+                        }}
+                        className="font-black uppercase text-xs shrink-0 border-2 border-black"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        Crear Héroe
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Hero Cards Grid */}
+                {filteredHeroes.length === 0 ? (
+                  <div className="text-center py-16 bg-white border-3 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6">
+                    <Shield className="w-12 h-12 text-zinc-300 mx-auto mb-2" />
+                    <h3 className="font-black text-lg text-black uppercase">
+                      No se encontraron héroes profesionales
+                    </h3>
+                    <p className="text-xs text-zinc-500 font-semibold mt-1 mb-4">
+                      Intenta con otro término de búsqueda o selecciona otra agencia.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedClassFilter("all");
+                      }}
+                      className="border-2 border-black font-bold text-xs"
+                    >
+                      Limpiar Filtros
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {filteredHeroes.map((hero) => {
+                      const charRumorsCount = rumors.filter((r) => r.characterId === hero.id).length;
+                      const charCommentsCount = comments.filter((c) => c.characterId === hero.id).length;
+                      return (
+                        <CharacterCard
+                          key={hero.id}
+                          character={hero}
+                          attributes={attributes}
+                          onSelect={openCharacterDetail}
+                          onDropRumor={openCreateRumorForChar}
+                          adminUser={adminUser}
+                          onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
+                          onDuplicate={handleDuplicateCharacter}
+                          onDelete={requestDeleteCharacterGlobal}
+                          commentCount={charCommentsCount}
+                          rumorCount={charRumorsCount}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* VIEW 3: CELEBRIDADES DIRECTORY */}
+            {activeTab === "celebridades" && (
+              <div className="space-y-6">
+                {/* Search & Filter Bar */}
+                <div className="bg-white border-3 border-black p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-3">
+                  {/* 100% Width Search Bar */}
+                  <div className="relative w-full">
+                    <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-3" />
+                    <Input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Buscar celebridad, figura pública o don (quirk)..."
+                      className="w-full pl-9 text-sm font-semibold border-2 border-black"
+                    />
+                  </div>
+
+                  {/* Filters Below */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 max-w-full">
+                      <span className="text-xs font-black uppercase text-zinc-500 mr-1 shrink-0">Categoría:</span>
+                      <button
+                        onClick={() => setSelectedClassFilter("all")}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg border-2 border-black transition-all cursor-pointer shrink-0 ${
+                          selectedClassFilter === "all"
+                            ? "bg-amber-400 text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] font-black"
+                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                        }`}
+                      >
+                        Todas ({celebridadesCharacters.length})
+                      </button>
+                      {availableCelebridadesClasses.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedClassFilter(cat)}
+                          className={`px-3 py-1 text-xs font-bold rounded-lg border-2 border-black transition-all cursor-pointer shrink-0 ${
+                            selectedClassFilter === cat
+                              ? "bg-amber-400 text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] font-black"
+                              : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+
+                    {adminUser && (
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        onClick={() => {
+                          setAdminEditingCharId(null);
+                          setAdminInitialSubTab("characters");
+                          navigate("/admin");
+                        }}
+                        className="font-black uppercase text-xs shrink-0 border-2 border-black"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        Crear Celebridad
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Celebridades Cards Grid */}
+                {filteredCelebridades.length === 0 ? (
+                  <div className="text-center py-16 bg-white border-3 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6">
+                    <Sparkles className="w-12 h-12 text-zinc-300 mx-auto mb-2" />
+                    <h3 className="font-black text-lg text-black uppercase">
+                      No se encontraron celebridades
+                    </h3>
+                    <p className="text-xs text-zinc-500 font-semibold mt-1 mb-4">
+                      Intenta con otro término de búsqueda o selecciona otra categoría.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedClassFilter("all");
+                      }}
+                      className="border-2 border-black font-bold text-xs"
+                    >
+                      Limpiar Filtros
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {filteredCelebridades.map((celeb) => {
+                      const charRumorsCount = rumors.filter((r) => r.characterId === celeb.id).length;
+                      const charCommentsCount = comments.filter((c) => c.characterId === celeb.id).length;
+                      return (
+                        <CharacterCard
+                          key={celeb.id}
+                          character={celeb}
+                          attributes={attributes}
+                          onSelect={openCharacterDetail}
+                          onDropRumor={openCreateRumorForChar}
+                          adminUser={adminUser}
+                          onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
+                          onDuplicate={handleDuplicateCharacter}
+                          onDelete={requestDeleteCharacterGlobal}
+                          commentCount={charCommentsCount}
+                          rumorCount={charRumorsCount}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* VIEW 3: RUMORS FEED */}
             {activeTab === "rumors" && (
               <RumorFeed
                 rumors={rumors}

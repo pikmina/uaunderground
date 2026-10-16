@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   AppStateData,
   Character,
+  CharacterGroup,
   RankingAttribute,
   AdminUser,
   SystemConfig,
@@ -175,12 +176,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // 2. Character Form State
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
+  const [customClassMode, setCustomClassMode] = useState(false);
   const [charForm, setCharForm] = useState({
     name: "",
     alias: "",
-    age: 16,
+    group: "Aspirantes a Héroes" as CharacterGroup,
     classCourse: "Clase 1-A (Heroísmo)",
+    category: "alumno" as "alumno" | "hero",
     quirk: "",
+    age: "" as number | string | undefined,
     avatarUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
     bio: "",
     rankings: {} as Record<string, number>,
@@ -197,9 +201,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setCharForm({
       name: char.name,
       alias: char.alias || "",
-      age: Number(char.age) || 16,
+      group: char.group || (char.category === "hero" ? "Héroes" : "Aspirantes a Héroes"),
       classCourse: char.classCourse || "Clase 1-A (Heroísmo)",
+      category: char.category || (char.group === "Héroes" || char.group === "Celebridades" ? "hero" : "alumno"),
       quirk: char.quirk || "",
+      age: char.age !== undefined && char.age !== null ? char.age : "",
       avatarUrl: char.avatarUrl || "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
       bio: char.bio || "",
       rankings: initialRankings,
@@ -271,6 +277,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const resetCharForm = () => {
     setEditingCharId(null);
+    setCustomClassMode(false);
     const initialRankings: Record<string, number> = {};
     attributes.forEach((attr) => {
       initialRankings[attr.id] = 5;
@@ -278,9 +285,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setCharForm({
       name: "",
       alias: "",
-      age: 16,
+      group: "Aspirantes a Héroes",
       classCourse: "Clase 1-A (Heroísmo)",
+      category: "alumno",
       quirk: "",
+      age: "",
       avatarUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
       bio: "",
       rankings: initialRankings,
@@ -679,8 +688,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <form onSubmit={handleSaveCharacter}>
                   <CardContent className="p-5 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="space-y-1">
+                    {/* Group & Classification Selector */}
+                    <div className="space-y-2 pb-3 border-b border-zinc-200">
+                      <Label className="text-xs font-black uppercase text-zinc-700">
+                        Grupo del Personaje *
+                      </Label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(["Aspirantes a Héroes", "Héroes", "Celebridades", "Otros"] as CharacterGroup[]).map((grp) => (
+                          <button
+                            key={grp}
+                            type="button"
+                            onClick={() => setCharForm({ ...charForm, group: grp, category: grp === "Héroes" || grp === "Celebridades" ? "hero" : "alumno" })}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border-2 border-black transition-all cursor-pointer ${
+                              charForm.group === grp
+                                ? "bg-amber-400 text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black"
+                                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                            }`}
+                          >
+                            {grp}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="space-y-1 sm:col-span-1">
                         <Label className="text-xs font-black uppercase text-zinc-700">
                           Nombre Completo *
                         </Label>
@@ -694,60 +726,107 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         />
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 sm:col-span-1">
                         <Label className="text-xs font-black uppercase text-zinc-700">
-                          Apodo Escolar / Héroe
+                          Alias / Apodo
                         </Label>
                         <Input
                           type="text"
                           value={charForm.alias}
                           onChange={(e) => setCharForm({ ...charForm, alias: e.target.value })}
-                          placeholder="Ej: Lord Explosión / Chico Mitad"
+                          placeholder="Ej: Lord Explosión / Kacchan"
                           className="border-2 border-black font-semibold text-sm"
                         />
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 sm:col-span-1">
                         <Label className="text-xs font-black uppercase text-zinc-700">
-                          Edad
-                        </Label>
-                        <Input
-                          type="number"
-                          value={charForm.age}
-                          onChange={(e) => setCharForm({ ...charForm, age: Number(e.target.value) })}
-                          min={10}
-                          max={99}
-                          className="border-2 border-black font-semibold text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs font-black uppercase text-zinc-700">
-                          Curso / Clase
-                        </Label>
-                        <Input
-                          type="text"
-                          value={charForm.classCourse}
-                          onChange={(e) => setCharForm({ ...charForm, classCourse: e.target.value })}
-                          placeholder="Ej: Clase 1-A (Heroísmo)"
-                          className="border-2 border-black font-semibold text-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-xs font-black uppercase text-zinc-700">
-                          Don / Quirk (Opcional)
+                          Quirk / Don
                         </Label>
                         <Input
                           type="text"
                           value={charForm.quirk}
                           onChange={(e) => setCharForm({ ...charForm, quirk: e.target.value })}
-                          placeholder="Ej: Explosión, Mitad Frío Mitad Caliente..."
+                          placeholder="Ej: Explosión, One For All..."
                           className="border-2 border-black font-semibold text-sm"
                         />
                       </div>
+
+                      <div className="space-y-1 sm:col-span-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Edad (Opcional)
+                        </Label>
+                        <Input
+                          type="number"
+                          value={charForm.age ?? ""}
+                          onChange={(e) => setCharForm({ ...charForm, age: e.target.value ? Number(e.target.value) : undefined })}
+                          placeholder="Ej: 16"
+                          min={1}
+                          max={120}
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-black uppercase text-zinc-700 flex items-center justify-between">
+                        <span>Ocupación / Clase *</span>
+                        <button
+                          type="button"
+                          onClick={() => setCustomClassMode(!customClassMode)}
+                          className="text-[11px] font-bold text-amber-700 hover:underline"
+                        >
+                          {customClassMode ? "← Seleccionar de la lista" : "+ Escribir opción personalizada"}
+                        </button>
+                      </Label>
+
+                      {!customClassMode ? (
+                        <select
+                          value={charForm.classCourse}
+                          onChange={(e) => {
+                            if (e.target.value === "__custom__") {
+                              setCustomClassMode(true);
+                              setCharForm({ ...charForm, classCourse: "" });
+                            } else {
+                              setCharForm({ ...charForm, classCourse: e.target.value });
+                            }
+                          }}
+                          className="w-full p-2 border-2 border-black rounded-md font-bold text-sm bg-white focus:ring-2 focus:ring-amber-400"
+                        >
+                          <option value="Clase 1-A (Heroísmo)">Clase 1-A (Heroísmo)</option>
+                          <option value="Clase 1-B (Heroísmo)">Clase 1-B (Heroísmo)</option>
+                          <option value="Estudios Generales">Estudios Generales</option>
+                          <option value="Hero Pro #1 (Leyenda)">Hero Pro #1 (Leyenda)</option>
+                          <option value="Hero Pro #2 (Agencia Hawks)">Hero Pro #2 (Agencia Hawks)</option>
+                          <option value="Agencia Independiente">Agencia Independiente</option>
+                          <option value="Celebridad TV / Medios">Celebridad TV / Medios</option>
+                          <option value="Prensa & Redes">Prensa & Redes</option>
+                          {charForm.classCourse &&
+                            ![
+                              "Clase 1-A (Heroísmo)",
+                              "Clase 1-B (Heroísmo)",
+                              "Estudios Generales",
+                              "Hero Pro #1 (Leyenda)",
+                              "Hero Pro #2 (Agencia Hawks)",
+                              "Agencia Independiente",
+                              "Celebridad TV / Medios",
+                              "Prensa & Redes",
+                            ].includes(charForm.classCourse) && (
+                              <option value={charForm.classCourse}>{charForm.classCourse}</option>
+                            )}
+                          <option value="__custom__">+ Agregar otra ocupación o clase...</option>
+                        </select>
+                      ) : (
+                        <Input
+                          type="text"
+                          value={charForm.classCourse}
+                          onChange={(e) => setCharForm({ ...charForm, classCourse: e.target.value })}
+                          placeholder="Escribe la nueva Ocupación/Clase (Ej: Agencia Dragón, Presentador Radio)..."
+                          className="border-2 border-black font-semibold text-sm"
+                          autoFocus
+                          required
+                        />
+                      )}
                     </div>
 
                     {/* Avatar URL, Live Preview & Presets */}
@@ -971,8 +1050,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <form onSubmit={handleSaveCharacter}>
                   <CardContent className="p-5 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="space-y-1">
+                    {/* Group & Classification Selector */}
+                    <div className="space-y-2 pb-3 border-b border-zinc-200">
+                      <Label className="text-xs font-black uppercase text-zinc-700">
+                        Grupo del Personaje *
+                      </Label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(["Aspirantes a Héroes", "Héroes", "Celebridades", "Otros"] as CharacterGroup[]).map((grp) => (
+                          <button
+                            key={grp}
+                            type="button"
+                            onClick={() => setCharForm({ ...charForm, group: grp, category: grp === "Héroes" || grp === "Celebridades" ? "hero" : "alumno" })}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border-2 border-black transition-all cursor-pointer ${
+                              charForm.group === grp
+                                ? "bg-amber-400 text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black"
+                                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                            }`}
+                          >
+                            {grp}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="space-y-1 sm:col-span-1">
                         <Label className="text-xs font-black uppercase text-zinc-700">
                           Nombre Completo *
                         </Label>
@@ -980,66 +1082,113 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           type="text"
                           value={charForm.name}
                           onChange={(e) => setCharForm({ ...charForm, name: e.target.value })}
-                          placeholder="Ej: Eijiro Kirishima"
+                          placeholder="Ej: Eijiro Kirishima / All Might"
                           className="border-2 border-black font-semibold text-sm"
                           required
                         />
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 sm:col-span-1">
                         <Label className="text-xs font-black uppercase text-zinc-700">
-                          Apodo Escolar / Héroe
+                          Alias / Apodo
                         </Label>
                         <Input
                           type="text"
                           value={charForm.alias}
                           onChange={(e) => setCharForm({ ...charForm, alias: e.target.value })}
-                          placeholder="Ej: Red Riot"
+                          placeholder="Ej: Red Riot / Símbolo de la Paz"
                           className="border-2 border-black font-semibold text-sm"
                         />
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 sm:col-span-1">
                         <Label className="text-xs font-black uppercase text-zinc-700">
-                          Edad
-                        </Label>
-                        <Input
-                          type="number"
-                          value={charForm.age}
-                          onChange={(e) => setCharForm({ ...charForm, age: Number(e.target.value) })}
-                          min={10}
-                          max={99}
-                          className="border-2 border-black font-semibold text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs font-black uppercase text-zinc-700">
-                          Curso / Clase
-                        </Label>
-                        <Input
-                          type="text"
-                          value={charForm.classCourse}
-                          onChange={(e) => setCharForm({ ...charForm, classCourse: e.target.value })}
-                          placeholder="Ej: Clase 1-A (Heroísmo)"
-                          className="border-2 border-black font-semibold text-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-xs font-black uppercase text-zinc-700">
-                          Don / Quirk (Opcional)
+                          Quirk / Don
                         </Label>
                         <Input
                           type="text"
                           value={charForm.quirk}
                           onChange={(e) => setCharForm({ ...charForm, quirk: e.target.value })}
-                          placeholder="Ej: Endurecimiento..."
+                          placeholder="Ej: Endurecimiento, Gigantificación..."
                           className="border-2 border-black font-semibold text-sm"
                         />
                       </div>
+
+                      <div className="space-y-1 sm:col-span-1">
+                        <Label className="text-xs font-black uppercase text-zinc-700">
+                          Edad (Opcional)
+                        </Label>
+                        <Input
+                          type="number"
+                          value={charForm.age ?? ""}
+                          onChange={(e) => setCharForm({ ...charForm, age: e.target.value ? Number(e.target.value) : undefined })}
+                          placeholder="Ej: 16"
+                          min={1}
+                          max={120}
+                          className="border-2 border-black font-semibold text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-black uppercase text-zinc-700 flex items-center justify-between">
+                        <span>Ocupación / Clase *</span>
+                        <button
+                          type="button"
+                          onClick={() => setCustomClassMode(!customClassMode)}
+                          className="text-[11px] font-bold text-amber-700 hover:underline"
+                        >
+                          {customClassMode ? "← Seleccionar de la lista" : "+ Escribir opción personalizada"}
+                        </button>
+                      </Label>
+
+                      {!customClassMode ? (
+                        <select
+                          value={charForm.classCourse}
+                          onChange={(e) => {
+                            if (e.target.value === "__custom__") {
+                              setCustomClassMode(true);
+                              setCharForm({ ...charForm, classCourse: "" });
+                            } else {
+                              setCharForm({ ...charForm, classCourse: e.target.value });
+                            }
+                          }}
+                          className="w-full p-2 border-2 border-black rounded-md font-bold text-sm bg-white focus:ring-2 focus:ring-amber-400"
+                        >
+                          <option value="Clase 1-A (Heroísmo)">Clase 1-A (Heroísmo)</option>
+                          <option value="Clase 1-B (Heroísmo)">Clase 1-B (Heroísmo)</option>
+                          <option value="Estudios Generales">Estudios Generales</option>
+                          <option value="Hero Pro #1 (Leyenda)">Hero Pro #1 (Leyenda)</option>
+                          <option value="Hero Pro #2 (Agencia Hawks)">Hero Pro #2 (Agencia Hawks)</option>
+                          <option value="Agencia Independiente">Agencia Independiente</option>
+                          <option value="Celebridad TV / Medios">Celebridad TV / Medios</option>
+                          <option value="Prensa & Redes">Prensa & Redes</option>
+                          {charForm.classCourse &&
+                            ![
+                              "Clase 1-A (Heroísmo)",
+                              "Clase 1-B (Heroísmo)",
+                              "Estudios Generales",
+                              "Hero Pro #1 (Leyenda)",
+                              "Hero Pro #2 (Agencia Hawks)",
+                              "Agencia Independiente",
+                              "Celebridad TV / Medios",
+                              "Prensa & Redes",
+                            ].includes(charForm.classCourse) && (
+                              <option value={charForm.classCourse}>{charForm.classCourse}</option>
+                            )}
+                          <option value="__custom__">+ Agregar otra ocupación o clase...</option>
+                        </select>
+                      ) : (
+                        <Input
+                          type="text"
+                          value={charForm.classCourse}
+                          onChange={(e) => setCharForm({ ...charForm, classCourse: e.target.value })}
+                          placeholder="Escribe la nueva Ocupación/Clase (Ej: Agencia Dragón, Presentador Radio)..."
+                          className="border-2 border-black font-semibold text-sm"
+                          autoFocus
+                          required
+                        />
+                      )}
                     </div>
 
                     {/* Avatar URL, Live Preview & Presets */}

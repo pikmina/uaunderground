@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Shield, Users, MessageSquare, Trophy, Lock, LogOut } from "lucide-react";
+import { Shield, Users, MessageSquare, Trophy, Lock, LogOut, Sparkles } from "lucide-react";
 import { AdminUser } from "../types";
 import { Link, useLocation } from "react-router-dom";
 
@@ -47,15 +47,18 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="bg-black text-white px-3 py-1.5 rounded font-black text-xl sm:text-2xl tracking-tighter uppercase transform -rotate-1 shadow-[3px_3px_0px_0px_rgba(255,255,255,1)] border-2 border-black">
-            UA UNDERGROUND
-          </div>
+          <Link to="/muro" className="flex items-center gap-3">
+            <div className="bg-black text-amber-300 px-3 py-1.5 rounded font-black text-xl sm:text-2xl tracking-tighter uppercase transform -rotate-1 shadow-[3px_3px_0px_0px_rgba(255,255,255,1)] border-2 border-black flex items-center gap-1.5">
+              <Sparkles className="w-5 h-5 text-amber-300 fill-amber-300" />
+              <span>HEROSPHERE</span>
+            </div>
+          </Link>
           <div className="hidden md:flex flex-col">
             <span className="text-[11px] font-black uppercase text-black tracking-widest leading-none">
-              HERO ACADEMY LEAKS & CHISMES
+              CANAL DE CHISMES & NOTICIAS
             </span>
             <span className="text-[10px] font-semibold text-zinc-800">
-              Foro de Rol MHA • No Oficial
+              Toda la Industria Heroica • Exclusivas
             </span>
           </div>
         </div>
@@ -63,26 +66,50 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         {/* Navigation Tabs */}
         <nav className="flex items-center gap-1 sm:gap-2 flex-wrap">
           <Button
-            variant={currentPath.startsWith("/alumnos") || currentPath === "/" ? "hero" : "outline"}
-            size="sm"
-            asChild
-            className="font-bold border-2 border-black"
-          >
-            <Link to="/alumnos">
-              <Users className="w-4 h-4" />
-              <span>Alumnos</span>
-            </Link>
-          </Button>
-
-          <Button
-            variant={currentPath.startsWith("/muro") || currentPath.startsWith("/buzon") ? "hero" : "outline"}
+            variant={currentPath.startsWith("/muro") || currentPath.startsWith("/buzon") || currentPath === "/" ? "hero" : "outline"}
             size="sm"
             asChild
             className="font-bold border-2 border-black"
           >
             <Link to="/muro">
-              <MessageSquare className="w-4 h-4" />
-              <span>Muro de Chismes</span>
+              <Sparkles className="w-4 h-4 text-amber-500 fill-amber-300" />
+              <span>Herosphere</span>
+            </Link>
+          </Button>
+
+          <Button
+            variant={currentPath.startsWith("/heroes") ? "hero" : "outline"}
+            size="sm"
+            asChild
+            className="font-bold border-2 border-black"
+          >
+            <Link to="/heroes">
+              <Shield className="w-4 h-4" />
+              <span>Héroes</span>
+            </Link>
+          </Button>
+
+          <Button
+            variant={currentPath.startsWith("/celebridades") ? "hero" : "outline"}
+            size="sm"
+            asChild
+            className="font-bold border-2 border-black"
+          >
+            <Link to="/celebridades">
+              <Sparkles className="w-4 h-4" />
+              <span>Celebridades</span>
+            </Link>
+          </Button>
+
+          <Button
+            variant={currentPath.startsWith("/aspirantes") || currentPath.startsWith("/alumnos") ? "hero" : "outline"}
+            size="sm"
+            asChild
+            className="font-bold border-2 border-black"
+          >
+            <Link to="/aspirantes">
+              <Users className="w-4 h-4" />
+              <span>Aspirantes</span>
             </Link>
           </Button>
 

@@ -116,9 +116,15 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
         <CardContent className="p-4 space-y-3 flex-1 overflow-y-auto custom-scrollbar">
           {/* Basic Info Tags */}
           <div className="flex items-center justify-between text-xs font-semibold text-zinc-700 pb-1 border-b border-zinc-200">
-            <span>
-              Edad: <strong className="text-black font-black">{character.age} años</strong>
-            </span>
+            {character.age !== undefined && character.age !== null && String(character.age).trim() !== "" ? (
+              <span>
+                Edad: <strong className="text-black font-black">{character.age} años</strong>
+              </span>
+            ) : (
+              <span className="text-amber-800 font-black bg-amber-200 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">
+                {character.group || "Héroe / Celebridad"}
+              </span>
+            )}
             {character.quirk && (
               <span className="truncate max-w-[170px] text-[11px] bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-300 font-bold" title={character.quirk}>
                 ⚡ {character.quirk}
@@ -129,7 +135,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
           {/* Ranking Bars Grid */}
           <div className="space-y-1.5 pt-1">
             <div className="text-[10px] uppercase font-black tracking-wider text-zinc-500 flex items-center justify-between">
-              <span>Rankings de la Academia</span>
+              <span>Rankings Herosphere</span>
               <span className="text-black font-bold">Escala 1 - 10</span>
             </div>
 
@@ -166,22 +172,20 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             </div>
           </div>
 
-          {/* Counter Pills */}
-          <div className="flex items-center gap-3 pt-2 text-xs font-bold text-zinc-600">
-            <button 
-              onClick={() => onSelect(character, "rumors")}
-              className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors cursor-pointer shadow-[1px_1px_0px_0px_rgba(0,0,0,0.2)]"
-            >
-              <Flame className="w-3.5 h-3.5 text-amber-500" /> 
-              {rumorCount} {rumorCount === 1 ? "rumor" : "rumores"}
-            </button>
-            <button 
-              onClick={() => onSelect(character, "comments")}
-              className="flex items-center gap-1 bg-sky-50 px-2 py-1 rounded border border-sky-300 text-sky-900 hover:bg-sky-100 transition-colors cursor-pointer shadow-[1px_1px_0px_0px_rgba(0,0,0,0.2)]"
-            >
-              <MessageCircle className="w-3.5 h-3.5 text-sky-500" />
-              {commentCount} {commentCount === 1 ? "comentario" : "comentarios"}
-            </button>
+          {/* Unified Counter Pill: Opiniones */}
+          <div className="flex items-center pt-2 text-xs font-bold text-zinc-600">
+            {(() => {
+              const totalOpinions = (rumorCount || 0) + (commentCount || 0);
+              return (
+                <button
+                  onClick={() => onSelect(character, "opinions" as any)}
+                  className="flex items-center gap-1.5 bg-amber-100 px-3 py-1.5 rounded-lg border-2 border-black text-black hover:bg-amber-200 transition-colors cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black text-xs"
+                >
+                  <MessageCircle className="w-4 h-4 text-amber-600 fill-amber-300" />
+                  <span>{totalOpinions} {totalOpinions === 1 ? "Opinión" : "Opiniones"}</span>
+                </button>
+              );
+            })()}
           </div>
         </CardContent>
 
@@ -201,10 +205,10 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               size="sm"
               onClick={() => onDropRumor(character)}
               className="font-black text-xs px-2.5"
-              title="Dejar un rumor sobre este personaje"
+              title="Dejar una opinión o chisme sobre este personaje"
             >
               <Flame className="w-3.5 h-3.5 text-red-600" />
-              <span>Chisme</span>
+              <span>Opinar</span>
             </Button>
           </div>
 
