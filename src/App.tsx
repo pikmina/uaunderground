@@ -469,10 +469,15 @@ export default function App() {
   ) => {
     try {
       const targetChar = characters.find((c) => c.id === characterId);
+      let charName = targetChar?.name;
+      if (characterId === "industry") charName = "Industria Heroica";
+      if (characterId === "scandal") charName = "Escándalo de prensa";
+      if (characterId === "general") charName = "Toda la Academia U.A";
+
       const newRumor: Rumor = {
         id: `rumor-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         characterId: characterId || undefined,
-        characterName: targetChar?.name || undefined,
+        characterName: charName || undefined,
         authorName: authorName.trim() || "Anónimo Hero",
         authorEmail: authorEmail.trim(),
         content: content.trim(),

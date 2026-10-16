@@ -155,7 +155,9 @@ export const CreateRumorDialog: React.FC<CreateRumorDialogProps> = ({
               onChange={(e) => setSelectedCharId(e.target.value)}
               className="flex h-9 w-full rounded-md border-2 border-black bg-white text-zinc-900 px-3 py-1 text-sm font-semibold shadow-sm focus-visible:outline-none cursor-pointer"
             >
-              <option value="general">🏛️ Toda la Academia U.A. (General / Campus)</option>
+              <option value="general">🏛️ Toda la Academia U.A (actual)</option>
+              <option value="industry">⚡ Industria Heroica</option>
+              <option value="scandal">📰 Escándalo de prensa</option>
               {characters.map((char) => (
                 <option key={char.id} value={char.id}>
                   👤 {char.name} ({char.classCourse})

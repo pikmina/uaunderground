@@ -148,9 +148,17 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
                               <Badge variant="classUa" className="text-[11px]">
                                 👤 {char.name} ({char.group || "Héroe"} • {char.classCourse})
                               </Badge>
+                            ) : rumor.characterId === "industry" ? (
+                              <Badge variant="manga" className="text-[11px] bg-sky-200 text-black">
+                                ⚡ Industria Heroica
+                              </Badge>
+                            ) : rumor.characterId === "scandal" ? (
+                              <Badge variant="manga" className="text-[11px] bg-red-200 text-black">
+                                📰 Escándalo de prensa
+                              </Badge>
                             ) : (
                               <Badge variant="manga" className="text-[11px] bg-amber-300 text-black">
-                                🏛️ Industria Heroica General
+                                🏛️ Toda la Academia U.A (actual)
                               </Badge>
                             )}
                           </div>
