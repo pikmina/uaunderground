@@ -70,8 +70,8 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname === "/") {
-      navigate("/alumnos", { replace: true });
+    if (location.pathname === "/" || location.pathname === "/buzon") {
+      navigate("/muro", { replace: true });
     }
   }, [location.pathname, navigate]);
 
@@ -115,8 +115,8 @@ export default function App() {
 
   const [loading, setLoading] = useState(true);
   
-  let activeTab: "characters" | "rumors" | "rankings" | "admin" | "fyeo" = "characters";
-  if (location.pathname.startsWith("/buzon")) activeTab = "rumors";
+  let activeTab: "characters" | "rumors" | "rankings" | "admin" | "fyeo" = "rumors";
+  if (location.pathname.startsWith("/muro") || location.pathname.startsWith("/buzon")) activeTab = "rumors";
   else if (location.pathname.startsWith("/news")) activeTab = "fyeo";
   else if (location.pathname.startsWith("/rankings")) activeTab = "rankings";
   else if (location.pathname.startsWith("/admin")) activeTab = "admin";
@@ -285,6 +285,7 @@ export default function App() {
       if (fbResult.success) {
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
+        navigate("/muro");
         // Notify API in background if online
         fetch("/api/auth/community", {
           method: "POST",
@@ -307,6 +308,7 @@ export default function App() {
       if (res.ok && data.success) {
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
+        navigate("/muro");
         return { success: true };
       }
       return { success: false, message: fbResult.message || data.message || `Contraseña no válida (${res.status})` };
@@ -328,6 +330,7 @@ export default function App() {
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
         fetchAdminData(fbAuth.token);
+        navigate("/muro");
         // Ping API in background
         fetch("/api/admin/login", {
           method: "POST",
@@ -357,6 +360,7 @@ export default function App() {
         setIsUnlocked(true);
         sessionStorage.setItem("ua_unlocked", "true");
         fetchAdminData(data.token);
+        navigate("/muro");
         return { success: true };
       }
       return { success: false, error: fbAuth.error || data.error || `Credenciales incorrectas (${res.status})` };

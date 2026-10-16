@@ -75,14 +75,14 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           </Button>
 
           <Button
-            variant={currentPath.startsWith("/buzon") ? "hero" : "outline"}
+            variant={currentPath.startsWith("/muro") || currentPath.startsWith("/buzon") ? "hero" : "outline"}
             size="sm"
             asChild
             className="font-bold border-2 border-black"
           >
-            <Link to="/buzon">
+            <Link to="/muro">
               <MessageSquare className="w-4 h-4" />
-              <span>Buzón de Chismes</span>
+              <span>Muro de Chismes</span>
             </Link>
           </Button>
 
