@@ -30,6 +30,7 @@ import {
   deleteAdminFirestore,
   deleteRumorFirestore,
   deleteCommentFirestore,
+  addFyeoPostFirestore,
   addFyeoCommentFirestore,
   reactToFyeoPostFirestore,
   reactToFyeoCommentFirestore,
@@ -206,6 +207,8 @@ export default function App() {
           if (fbData.characters) setCharacters(fbData.characters);
           if (fbData.rumors) setRumors(fbData.rumors);
           if (fbData.comments) setComments(fbData.comments);
+          if (fbData.fyeoPosts) setFyeoPosts(fbData.fyeoPosts);
+          if (fbData.fyeoComments) setFyeoComments(fbData.fyeoComments);
           if (adminUser) fetchAdminData();
           return;
         }
@@ -461,7 +464,8 @@ export default function App() {
     characterId: string | null,
     authorName: string,
     authorEmail: string,
-    content: string
+    content: string,
+    icDate?: string
   ) => {
     try {
       const targetChar = characters.find((c) => c.id === characterId);
@@ -469,11 +473,12 @@ export default function App() {
         id: `rumor-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         characterId: characterId || undefined,
         characterName: targetChar?.name || undefined,
-        authorName: authorName.trim() || "Anónimo UA",
+        authorName: authorName.trim() || "Anónimo Hero",
         authorEmail: authorEmail.trim(),
         content: content.trim(),
         reactions: { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 },
         timestamp: new Date().toISOString(),
+        icDate: icDate || config.currentIcDate || "Julio de 2201",
       };
 
       // 1. Save directly to Cloud Firestore
@@ -484,7 +489,7 @@ export default function App() {
       fetch("/api/rumors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterId, authorName, authorEmail, content }),
+        body: JSON.stringify({ characterId, authorName, authorEmail, content, icDate }),
       }).catch(() => {});
 
       return { success: true };
@@ -499,7 +504,8 @@ export default function App() {
     characterId: string,
     authorName: string,
     authorEmail: string,
-    content: string
+    content: string,
+    icDate?: string
   ) => {
     try {
       const newComment: CharacterComment = {
@@ -510,6 +516,7 @@ export default function App() {
         content: content.trim(),
         reactions: { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 },
         timestamp: new Date().toISOString(),
+        icDate: icDate || config.currentIcDate || "Julio de 2201",
       };
 
       // 1. Save directly to Cloud Firestore
@@ -520,7 +527,7 @@ export default function App() {
       fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterId, authorName, authorEmail, content }),
+        body: JSON.stringify({ characterId, authorName, authorEmail, content, icDate }),
       }).catch(() => {});
 
       return { success: true };
@@ -530,7 +537,13 @@ export default function App() {
     }
   };
 
-  const handlePostFyeoComment = async (postId: string, authorName: string, authorEmail: string, content: string) => {
+  const handlePostFyeoComment = async (
+    postId: string,
+    authorName: string,
+    authorEmail: string,
+    content: string,
+    icDate?: string
+  ) => {
     try {
       const newComment: FyeoComment = {
         id: "fyeocomm_" + Date.now().toString(),
@@ -539,7 +552,8 @@ export default function App() {
         authorEmail,
         content,
         timestamp: new Date().toISOString(),
-        reactions: { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 }
+        reactions: { "🔥": 0, "😱": 0, "💀": 0, "👀": 0, "🤫": 0 },
+        icDate: icDate || config.currentIcDate || "Julio de 2201",
       };
       
       await addFyeoCommentFirestore(newComment);
@@ -610,12 +624,15 @@ export default function App() {
 
   const handleCreateCharacter = async (char: Partial<Character>) => {
     try {
+      const selectedGroup = char.group || "Aspirantes a Héroes";
+      const selectedCategory = char.category || (selectedGroup === "Héroes" || selectedGroup === "Celebridades" ? "hero" : "alumno");
       const newChar: Character = {
         id: char.id || `char-${Date.now()}`,
         name: char.name || "Nuevo Personaje",
         alias: char.alias || "",
-        age: char.age || 16,
-        classCourse: char.classCourse || "1-A",
+        group: selectedGroup,
+        category: selectedCategory,
+        classCourse: char.classCourse || "Clase 1-A (Heroísmo)",
         quirk: char.quirk || "",
         avatarUrl: char.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
         bio: char.bio || "",
@@ -640,9 +657,13 @@ export default function App() {
     try {
       const existing = characters.find((c) => c.id === id);
       if (!existing) return false;
+      const updatedGroup = char.group || existing.group || "Aspirantes a Héroes";
+      const updatedCategory = char.category || existing.category || (updatedGroup === "Héroes" || updatedGroup === "Celebridades" ? "hero" : "alumno");
       const updated: Character = {
         ...existing,
         ...char,
+        group: updatedGroup,
+        category: updatedCategory,
         updatedAt: new Date().toISOString(),
       };
       await saveCharacterFirestore(updated);
@@ -1450,6 +1471,7 @@ export default function App() {
                 }}
                 adminUser={adminUser}
                 onDeleteRumor={handleDeleteRumor}
+                currentIcDate={config.currentIcDate}
               />
             )}
 
@@ -1481,6 +1503,9 @@ export default function App() {
                     }
                   }
                 }}
+                currentIcMonth={config.currentIcMonth}
+                currentIcYear={config.currentIcYear}
+                currentIcDate={config.currentIcDate}
               />
             )}
 
@@ -1586,6 +1611,9 @@ export default function App() {
         onOpenCreateRumor={openCreateRumorForChar}
         onEditCharacter={handleOpenEditCharacterInAdmin}
         prohibitedWords={config.prohibitedWords}
+        currentIcMonth={config.currentIcMonth}
+        currentIcYear={config.currentIcYear}
+        currentIcDate={config.currentIcDate}
       />
 
       {/* 2. Create Rumor Dialog */}
@@ -1596,6 +1624,9 @@ export default function App() {
         targetCharacter={createRumorTargetChar}
         onPostRumor={handlePostRumor}
         prohibitedWords={config.prohibitedWords}
+        currentIcMonth={config.currentIcMonth}
+        currentIcYear={config.currentIcYear}
+        currentIcDate={config.currentIcDate}
       />
 
       {/* 3. Admin Login Dialog */}

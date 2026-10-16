@@ -192,6 +192,9 @@ export async function fetchFirestoreState(): Promise<{
       siteNotice: config.siteNotice || "",
       lastPasswordChange: config.lastPasswordChange || new Date().toISOString(),
       prohibitedWords: config.prohibitedWords || [],
+      currentIcMonth: config.currentIcMonth || "Julio",
+      currentIcYear: config.currentIcYear || "2201",
+      currentIcDate: config.currentIcDate || `${config.currentIcMonth || "Julio"} de ${config.currentIcYear || "2201"}`,
     },
   };
 }

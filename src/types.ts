@@ -17,7 +17,6 @@ export interface Character {
   group?: CharacterGroup;
   classCourse: string; // Ocupación o Clase
   quirk?: string;
-  age?: number | string;
   avatarUrl: string;
   bio?: string;
   category?: "alumno" | "hero";
@@ -36,7 +35,8 @@ export interface Rumor {
   authorEmail: string; // Guardado privado para seguridad/moderación, nunca visible en público
   content: string;
   reactions: Record<EmojiReactionKey, number>;
-  timestamp: string;
+  timestamp: string; // Fecha real de publicación
+  icDate?: string;    // Fecha On-Role (IC) de juego, ej: "15 de Julio, 2201"
 }
 
 export interface CharacterComment {
@@ -46,7 +46,8 @@ export interface CharacterComment {
   authorEmail: string; // Privado
   content: string;
   reactions: Record<EmojiReactionKey, number>;
-  timestamp: string;
+  timestamp: string; // Fecha real de publicación
+  icDate?: string;    // Fecha On-Role (IC) de juego, ej: "Julio de 2201"
 }
 
 export interface FyeoPost {
@@ -55,9 +56,10 @@ export interface FyeoPost {
   content: string; // HTML format from TipTap
   authorAlias: string;
   authorAvatar: string;
-  createdAt: string;
+  createdAt: string; // Fecha real
   updatedAt: string;
   reactions?: Record<EmojiReactionKey, number>;
+  icDate?: string;   // Fecha On-Role (IC) de juego, ej: "Julio de 2201"
 }
 
 export interface FyeoComment {
@@ -67,7 +69,8 @@ export interface FyeoComment {
   authorEmail: string; // Private
   content: string;
   reactions: Record<EmojiReactionKey, number>;
-  timestamp: string;
+  timestamp: string; // Fecha real
+  icDate?: string;    // Fecha On-Role (IC) de juego
 }
 
 export interface AdminUser {
@@ -86,6 +89,9 @@ export interface SystemConfig {
   lastPasswordChange: string;
   prohibitedWords: string[];
   siteNotice: string;
+  currentIcMonth?: string; // Ej: "Julio"
+  currentIcYear?: string | number;  // Ej: "2201"
+  currentIcDate?: string;  // Ej: "Julio de 2201"
 }
 
 export interface AppStateData {

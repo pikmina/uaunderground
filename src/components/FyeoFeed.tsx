@@ -3,6 +3,7 @@ import { FyeoPost, FyeoComment, EmojiReactionKey } from "../types";
 import { Shield, Clock, AlertTriangle, Plus, Edit2, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { HeroicAdCard } from "./HeroicAdCard";
+import { IcDatePicker } from "./IcDatePicker";
 
 interface FyeoFeedProps {
   posts: FyeoPost[];
@@ -10,10 +11,13 @@ interface FyeoFeedProps {
   isAdmin?: boolean;
   onReactPost?: (postId: string, emoji: EmojiReactionKey) => void;
   onReactComment?: (commentId: string, emoji: EmojiReactionKey) => void;
-  onPostComment: (postId: string, authorName: string, authorEmail: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  onPostComment: (postId: string, authorName: string, authorEmail: string, content: string, icDate?: string) => Promise<{ success: boolean; error?: string }>;
   onCreatePost?: () => void;
   onEditPost?: (postId: string) => void;
   onDeletePost?: (postId: string) => void;
+  currentIcMonth?: string;
+  currentIcYear?: string | number;
+  currentIcDate?: string;
 }
 
 export const FyeoFeed: React.FC<FyeoFeedProps> = ({
@@ -25,12 +29,16 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
   onPostComment,
   onCreatePost,
   onEditPost,
-  onDeletePost
+  onDeletePost,
+  currentIcMonth = "Julio",
+  currentIcYear = "2201",
+  currentIcDate = "Julio de 2201",
 }) => {
   const [activeCommentPost, setActiveCommentPost] = useState<string | null>(null);
   const [commentContent, setCommentContent] = useState("");
   const [commentName, setCommentName] = useState("");
   const [commentEmail, setCommentEmail] = useState("");
+  const [commentIcDate, setCommentIcDate] = useState<string>(currentIcDate);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -46,7 +54,7 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
     setErrorMsg("");
     setIsSubmitting(true);
     
-    const res = await onPostComment(postId, commentName, commentEmail, commentContent);
+    const res = await onPostComment(postId, commentName, commentEmail, commentContent, commentIcDate || currentIcDate || "Julio de 2201");
     
     setIsSubmitting(false);
     if (res.success) {
@@ -129,13 +137,12 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
                   </div>
                   <div>
                     <h3 className="text-xl sm:text-2xl font-black uppercase leading-tight text-black break-words">{post.title}</h3>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="bg-red-600 text-white text-[10px] uppercase font-black px-2 py-0.5 rounded tracking-widest">
                         {post.authorAlias}
                       </span>
-                      <span className="text-xs font-bold text-zinc-500 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" />
-                        {new Date(post.createdAt).toLocaleDateString()}
+                      <span className="bg-amber-100 text-amber-950 border border-amber-400 text-xs font-black px-2 py-0.5 rounded flex items-center gap-1 shadow-2xs">
+                        📅 {post.icDate || currentIcDate || "Julio de 2201"}
                       </span>
                     </div>
                   </div>
@@ -211,6 +218,14 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
                         disabled={isSubmitting}
                       />
                     </div>
+
+                    <IcDatePicker
+                      value={commentIcDate}
+                      onChange={setCommentIcDate}
+                      defaultMonth={currentIcMonth}
+                      defaultYear={currentIcYear}
+                    />
+
                     <textarea 
                       placeholder="Escribe tu comentario..."
                       className="w-full bg-white border-2 border-black rounded p-3 text-sm font-semibold min-h-[80px] resize-y"
@@ -237,12 +252,11 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
                 <div className="border-t-4 border-black bg-white">
                   {postComments.map((comment, idx) => (
                     <div key={comment.id} className={`p-4 sm:p-6 ${idx !== postComments.length - 1 ? 'border-b-2 border-zinc-200' : ''}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-black text-sm uppercase">{comment.authorName}</span>
-                          <span className="text-xs font-bold text-zinc-400 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {new Date(comment.timestamp).toLocaleString()}
+                          <span className="bg-amber-100 text-amber-950 border border-amber-300 text-[10px] font-black px-1.5 py-0.5 rounded">
+                            📅 {comment.icDate || currentIcDate || "Julio de 2201"}
                           </span>
                         </div>
                       </div>

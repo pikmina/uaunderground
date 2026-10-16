@@ -116,15 +116,9 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
         <CardContent className="p-4 space-y-3 flex-1 overflow-y-auto custom-scrollbar">
           {/* Basic Info Tags */}
           <div className="flex items-center justify-between text-xs font-semibold text-zinc-700 pb-1 border-b border-zinc-200">
-            {character.age !== undefined && character.age !== null && String(character.age).trim() !== "" ? (
-              <span>
-                Edad: <strong className="text-black font-black">{character.age} años</strong>
-              </span>
-            ) : (
-              <span className="text-amber-800 font-black bg-amber-200 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">
-                {character.group || "Héroe / Celebridad"}
-              </span>
-            )}
+            <span className="text-amber-800 font-black bg-amber-200 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">
+              {character.group || "Héroe / Celebridad"}
+            </span>
             {character.quirk && (
               <span className="truncate max-w-[170px] text-[11px] bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-300 font-bold" title={character.quirk}>
                 ⚡ {character.quirk}

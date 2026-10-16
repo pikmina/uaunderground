@@ -41,11 +41,13 @@ import {
   Search,
   X,
   Loader2,
-  FileText
+  FileText,
+  Calendar,
 } from "lucide-react";
 import { getAttributeIcon, HEROIC_ICONS } from "../lib/heroIcons";
 import { TiptapEditor } from "./TiptapEditor";
 import { addFyeoPostFirestore, updateFyeoPostFirestore, deleteFyeoPostFirestore } from "../firebase";
+import { IcDatePicker } from "./IcDatePicker";
 
 interface AdminDashboardProps {
   config: SystemConfig;
@@ -136,7 +138,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     title: "",
     content: "",
     authorAlias: "The Informant",
-    authorAvatar: "https://images.unsplash.com/photo-1542282088-fe8426682b8f?w=400&auto=format&fit=crop&q=80"
+    authorAvatar: "https://images.unsplash.com/photo-1542282088-fe8426682b8f?w=400&auto=format&fit=crop&q=80",
+    icDate: config.currentIcDate || "Julio de 2201",
   });
   const [isSubmittingFyeo, setIsSubmittingFyeo] = useState(false);
 
@@ -152,14 +155,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [commPassword, setCommPassword] = useState("");
   const [passHint, setPassHint] = useState(config.passwordHint || "");
   const [siteNotice, setSiteNotice] = useState(config.siteNotice || "");
+  const [icMonth, setIcMonth] = useState(config.currentIcMonth || "Julio");
+  const [icYear, setIcYear] = useState(String(config.currentIcYear || "2201"));
   const [savingConfig, setSavingConfig] = useState(false);
 
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingConfig(true);
+    const cleanMonth = icMonth.trim() || "Julio";
+    const cleanYear = icYear.trim() || "2201";
     const payload: Partial<SystemConfig> = {
       passwordHint: passHint.trim(),
       siteNotice: siteNotice.trim(),
+      currentIcMonth: cleanMonth,
+      currentIcYear: cleanYear,
+      currentIcDate: `${cleanMonth} de ${cleanYear}`,
     };
     if (commPassword.trim()) {
       payload.communityPassword = commPassword.trim();
@@ -168,7 +178,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setSavingConfig(false);
     if (ok) {
       setCommPassword("");
-      notify("¡Configuración guardada con éxito! La contraseña comunitaria está cifrada.");
+      notify("¡Configuración y fecha de juego guardadas con éxito!");
     } else {
       notify("Error al guardar la configuración.", "error");
     }
@@ -184,7 +194,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     classCourse: "Clase 1-A (Heroísmo)",
     category: "alumno" as "alumno" | "hero",
     quirk: "",
-    age: "" as number | string | undefined,
     avatarUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
     bio: "",
     rankings: {} as Record<string, number>,
@@ -205,7 +214,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       classCourse: char.classCourse || "Clase 1-A (Heroísmo)",
       category: char.category || (char.group === "Héroes" || char.group === "Celebridades" ? "hero" : "alumno"),
       quirk: char.quirk || "",
-      age: char.age !== undefined && char.age !== null ? char.age : "",
       avatarUrl: char.avatarUrl || "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
       bio: char.bio || "",
       rankings: initialRankings,
@@ -289,7 +297,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       classCourse: "Clase 1-A (Heroísmo)",
       category: "alumno",
       quirk: "",
-      age: "",
       avatarUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
       bio: "",
       rankings: initialRankings,
@@ -667,7 +674,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Editar: {charForm.name || "Ficha de Personaje"}
                   </h2>
                   <p className="text-xs text-zinc-800 font-semibold mt-1">
-                    {charForm.alias ? `"${charForm.alias}" • ` : ""}{charForm.classCourse} • {charForm.age} años
+                    {charForm.alias ? `"${charForm.alias}" • ` : ""}{charForm.classCourse}
                   </p>
                   <p className="text-[11px] text-zinc-700 font-medium mt-0.5">
                     Modifica los datos del personaje a continuación. Al presionar "Guardar Cambios del Personaje", todos los datos se sincronizan al instante en el perfil, en los comentarios, en los rankings y en la base de datos Firestore.
@@ -711,7 +718,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="space-y-1 sm:col-span-1">
                         <Label className="text-xs font-black uppercase text-zinc-700">
                           Nombre Completo *
@@ -748,21 +755,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           value={charForm.quirk}
                           onChange={(e) => setCharForm({ ...charForm, quirk: e.target.value })}
                           placeholder="Ej: Explosión, One For All..."
-                          className="border-2 border-black font-semibold text-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-1 sm:col-span-1">
-                        <Label className="text-xs font-black uppercase text-zinc-700">
-                          Edad (Opcional)
-                        </Label>
-                        <Input
-                          type="number"
-                          value={charForm.age ?? ""}
-                          onChange={(e) => setCharForm({ ...charForm, age: e.target.value ? Number(e.target.value) : undefined })}
-                          placeholder="Ej: 16"
-                          min={1}
-                          max={120}
                           className="border-2 border-black font-semibold text-sm"
                         />
                       </div>
@@ -1073,7 +1065,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="space-y-1 sm:col-span-1">
                         <Label className="text-xs font-black uppercase text-zinc-700">
                           Nombre Completo *
@@ -1110,21 +1102,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           value={charForm.quirk}
                           onChange={(e) => setCharForm({ ...charForm, quirk: e.target.value })}
                           placeholder="Ej: Endurecimiento, Gigantificación..."
-                          className="border-2 border-black font-semibold text-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-1 sm:col-span-1">
-                        <Label className="text-xs font-black uppercase text-zinc-700">
-                          Edad (Opcional)
-                        </Label>
-                        <Input
-                          type="number"
-                          value={charForm.age ?? ""}
-                          onChange={(e) => setCharForm({ ...charForm, age: e.target.value ? Number(e.target.value) : undefined })}
-                          placeholder="Ej: 16"
-                          min={1}
-                          max={120}
                           className="border-2 border-black font-semibold text-sm"
                         />
                       </div>
@@ -1446,7 +1423,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 )}
                               </div>
                               <p className="text-xs text-zinc-600 font-semibold mt-0.5">
-                                {char.alias ? `"${char.alias}" • ` : ""}{char.age} años
+                                {char.alias ? `"${char.alias}" • ` : ""}{char.group || "Héroe / Celebridad"}
                               </p>
 
                               {/* Mini ranking attribute badges */}
@@ -2028,6 +2005,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 </div>
 
+                <div className="pt-3 border-t-2 border-zinc-200 space-y-2">
+                  <Label className="text-xs font-black uppercase text-amber-950 flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-amber-600" />
+                    <span>Tiempo de Juego (Mes y Año)</span>
+                  </Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50 p-3 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-zinc-800 uppercase">Mes de Juego Actual</Label>
+                      <select
+                        value={icMonth}
+                        onChange={(e) => setIcMonth(e.target.value)}
+                        className="w-full h-9 rounded border-2 border-black bg-white px-2 text-xs font-black cursor-pointer"
+                      >
+                        {[
+                          "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+                        ].map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-zinc-800 uppercase">Año de Juego Actual</Label>
+                      <Input
+                        type="text"
+                        value={icYear}
+                        onChange={(e) => setIcYear(e.target.value)}
+                        placeholder="2201"
+                        className="border-2 border-black text-xs font-black bg-white"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-zinc-600 font-bold">
+                    📌 Fecha de juego predeterminada para nuevos rumores, opiniones y comunicados: <strong className="text-black bg-amber-200 px-1.5 py-0.5 rounded border border-black">{icMonth} de {icYear}</strong>
+                  </p>
+                </div>
+
                 <div className="pt-2">
                   <Button
                     type="submit"
@@ -2036,7 +2050,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="font-black uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
                   >
                     <Save className="w-4 h-4 mr-1.5" />
-                    {savingConfig ? "Guardando..." : "Guardar Nueva Contraseña y Avisos"}
+                    {savingConfig ? "Guardando..." : "Guardar Configuración y Fecha de Juego"}
                   </Button>
                 </div>
               </CardContent>
@@ -2436,6 +2450,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       className="font-bold border-2 border-black"
                     />
                   </div>
+                  <IcDatePicker
+                    value={fyeoFormData.icDate || config.currentIcDate || "Julio de 2201"}
+                    onChange={(formatted) => setFyeoFormData({ ...fyeoFormData, icDate: formatted })}
+                    defaultMonth={config.currentIcMonth}
+                    defaultYear={config.currentIcYear}
+                  />
                   <div className="space-y-2">
                     <Label className="font-black uppercase text-xs">Contenido</Label>
                     <TiptapEditor

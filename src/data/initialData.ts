@@ -22,6 +22,9 @@ export const initialData: AppStateData = {
     ],
     siteNotice:
       "⚡ HEROSPHERE: Bienvenido al canal oficial de chismes, clasificaciones e historias de la industria heroica. ¡Recuerda mantener el respeto y la confidencialidad!",
+    currentIcMonth: "Julio",
+    currentIcYear: "2201",
+    currentIcDate: "Julio de 2201",
   },
   attributes: [
     {
@@ -87,7 +90,6 @@ export const initialData: AppStateData = {
       group: "Aspirantes a Héroes",
       classCourse: "Clase 1-A (Heroísmo)",
       quirk: "Explosión (Sudor de nitroglicerina)",
-      age: 16,
       avatarUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
       bio: "Furia andante. Número uno en los exámenes prácticos y especialista en generar controversia en los medios.",
       rankings: {
@@ -106,7 +108,6 @@ export const initialData: AppStateData = {
       group: "Aspirantes a Héroes",
       classCourse: "Clase 1-A (Heroísmo)",
       quirk: "Mitad Frío, Mitad Caliente",
-      age: 16,
       avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
       bio: "Misterioso, reservado y probablemente el más cotizado entre los jóvenes prospectos de héroe.",
       rankings: {
@@ -125,7 +126,6 @@ export const initialData: AppStateData = {
       group: "Aspirantes a Héroes",
       classCourse: "Clase 1-A (Heroísmo)",
       quirk: "One For All (Fuerza de choque)",
-      age: 16,
       avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80",
       bio: "Siempre anotando tácticas en su cuaderno. Se rompe los huesos pero persevera sin descanso.",
       rankings: {
@@ -144,7 +144,6 @@ export const initialData: AppStateData = {
       group: "Aspirantes a Héroes",
       classCourse: "Clase 1-A (Heroísmo)",
       quirk: "Gravedad Cero",
-      age: 16,
       avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80",
       bio: "Alegre y carismática, apasionada del entrenamiento de rescate y combate cuerpo a cuerpo.",
       rankings: {
@@ -163,7 +162,6 @@ export const initialData: AppStateData = {
       group: "Aspirantes a Héroes",
       classCourse: "Clase 1-B (Heroísmo)",
       quirk: "Copia (Copycat)",
-      age: 16,
       avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80",
       bio: "Famoso por sus declaraciones teatrales e intensas sobre las rivalidades entre clases.",
       rankings: {
@@ -240,6 +238,7 @@ export const initialData: AppStateData = {
       content: "Vieron a Bakugo a las 2 AM en la cocina de los dormitorios preparando salsa picante secreta mientras tarareaba el opening de un anime.",
       reactions: { "🔥": 24, "😱": 5, "💀": 12, "👀": 38, "🤫": 19 },
       timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
+      icDate: "Julio de 2201",
     },
     {
       id: "rumor-2",
@@ -250,6 +249,7 @@ export const initialData: AppStateData = {
       content: "Todoroki rechazó una carta de amor porque pensó que era un formulario de inscripción para un simulacro de rescate.",
       reactions: { "🔥": 15, "😱": 42, "💀": 28, "👀": 50, "🤫": 9 },
       timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
+      icDate: "Julio de 2201",
     },
     {
       id: "rumor-3",
@@ -260,6 +260,7 @@ export const initialData: AppStateData = {
       content: "Lunch Rush está planeando un menú especial de edición limitada con extra picante y los de 1-A están apostando quién sobrevive.",
       reactions: { "🔥": 31, "😱": 8, "💀": 4, "👀": 22, "🤫": 14 },
       timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+      icDate: "Julio de 2201",
     },
   ],
   comments: [
@@ -271,6 +272,7 @@ export const initialData: AppStateData = {
       content: "Confirmo lo de la salsa picante, dejó el microondas Oliendo a pólvora por tres días.",
       reactions: { "🔥": 12, "😱": 2, "💀": 8, "👀": 14, "🤫": 5 },
       timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+      icDate: "Julio de 2201",
     },
     {
       id: "comm-2",
@@ -280,6 +282,7 @@ export const initialData: AppStateData = {
       content: "Por favor díganle que lea las cartas antes de archivarlas como 'documentos oficiales' 😭",
       reactions: { "🔥": 4, "😱": 9, "💀": 17, "👀": 21, "🤫": 2 },
       timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
+      icDate: "Julio de 2201",
     },
   ],
   fyeoPosts: [
@@ -291,6 +294,7 @@ export const initialData: AppStateData = {
       authorAvatar: "https://images.unsplash.com/photo-1542282088-fe8426682b8f?w=400&auto=format&fit=crop&q=80",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      icDate: "Julio de 2201",
     }
   ],
   fyeoComments: [],

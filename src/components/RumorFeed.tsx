@@ -12,6 +12,7 @@ interface RumorFeedProps {
   onOpenCreateRumor: () => void;
   adminUser: AdminUser | null;
   onDeleteRumor?: (rumorId: string) => void;
+  currentIcDate?: string;
 }
 
 const EMOJIS: { key: EmojiReactionKey; label: string }[] = [
@@ -29,6 +30,7 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
   onOpenCreateRumor,
   adminUser,
   onDeleteRumor,
+  currentIcDate = "Julio de 2201",
 }) => {
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
@@ -152,15 +154,15 @@ export const RumorFeed: React.FC<RumorFeedProps> = ({
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-zinc-400 font-bold">
-                              {new Date(rumor.timestamp).toLocaleDateString()}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="bg-amber-100 text-amber-950 border border-amber-400 text-[11px] font-black px-2 py-0.5 rounded flex items-center gap-1 shadow-2xs" title="Fecha de juego">
+                              📅 {rumor.icDate || currentIcDate || "Julio de 2201"}
                             </span>
                             {adminUser && onDeleteRumor && (
                               <button
                                 onClick={() => onDeleteRumor(rumor.id)}
                                 title="Eliminar rumor (Moderación)"
-                                className="text-red-500 hover:text-red-700 cursor-pointer p-1"
+                                className="text-red-500 hover:text-red-700 cursor-pointer p-1 ml-1"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>

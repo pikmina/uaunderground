@@ -13,6 +13,7 @@ import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Character } from "../types";
 import { Flame, ShieldAlert, Lock, AlertCircle } from "lucide-react";
+import { IcDatePicker } from "./IcDatePicker";
 
 interface CreateRumorDialogProps {
   open: boolean;
@@ -23,9 +24,13 @@ interface CreateRumorDialogProps {
     charId: string | null,
     authorName: string,
     authorEmail: string,
-    content: string
+    content: string,
+    icDate?: string
   ) => Promise<{ success: boolean; error?: string }>;
   prohibitedWords: string[];
+  currentIcMonth?: string;
+  currentIcYear?: string | number;
+  currentIcDate?: string;
 }
 
 export const CreateRumorDialog: React.FC<CreateRumorDialogProps> = ({
@@ -35,6 +40,9 @@ export const CreateRumorDialog: React.FC<CreateRumorDialogProps> = ({
   targetCharacter,
   onPostRumor,
   prohibitedWords,
+  currentIcMonth = "Julio",
+  currentIcYear = "2201",
+  currentIcDate = "Julio de 2201",
 }) => {
   const [selectedCharId, setSelectedCharId] = useState<string>(
     targetCharacter ? targetCharacter.id : "general"
@@ -42,8 +50,15 @@ export const CreateRumorDialog: React.FC<CreateRumorDialogProps> = ({
   const [authorName, setAuthorName] = useState("");
   const [authorEmail, setAuthorEmail] = useState("");
   const [content, setContent] = useState("");
+  const [icDate, setIcDate] = useState<string>(currentIcDate);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setIcDate(currentIcDate || "Julio de 2201");
+    }
+  }, [open, currentIcDate]);
 
   useEffect(() => {
     if (targetCharacter) {
@@ -86,7 +101,8 @@ export const CreateRumorDialog: React.FC<CreateRumorDialogProps> = ({
         charId,
         authorName.trim() || "Estudiante Misterioso",
         authorEmail.trim(),
-        content.trim()
+        content.trim(),
+        icDate || currentIcDate || "Julio de 2201"
       );
 
       if (!res.success) {
@@ -182,6 +198,13 @@ export const CreateRumorDialog: React.FC<CreateRumorDialogProps> = ({
           <p className="text-[10px] text-zinc-500 font-medium leading-tight">
             🔒 Tu correo no será visible para nadie en la web. Es una medida del staff para evitar acoso y que todos disfruten del rol en paz.
           </p>
+
+          <IcDatePicker
+            value={icDate}
+            onChange={setIcDate}
+            defaultMonth={currentIcMonth}
+            defaultYear={currentIcYear}
+          />
 
           <div className="space-y-1">
             <Label className="text-xs uppercase font-black text-zinc-700">

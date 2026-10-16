@@ -32,6 +32,8 @@ import {
   Edit2,
 } from "lucide-react";
 
+import { IcDatePicker } from "./IcDatePicker";
+
 interface CharacterDetailDialogProps {
   character: Character | null;
   open: boolean;
@@ -45,7 +47,8 @@ interface CharacterDetailDialogProps {
     charId: string,
     authorName: string,
     authorEmail: string,
-    content: string
+    content: string,
+    icDate?: string
   ) => Promise<{ success: boolean; error?: string }>;
   onReactComment: (commId: string, emoji: EmojiReactionKey) => void;
   onReactRumor: (rumorId: string, emoji: EmojiReactionKey) => void;
@@ -53,6 +56,9 @@ interface CharacterDetailDialogProps {
   onOpenCreateRumor: (char: Character) => void;
   onEditCharacter?: (char: Character) => void;
   prohibitedWords: string[];
+  currentIcMonth?: string;
+  currentIcYear?: string | number;
+  currentIcDate?: string;
 }
 
 const EMOJIS: { key: EmojiReactionKey; label: string }[] = [
@@ -79,6 +85,9 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
   onOpenCreateRumor,
   onEditCharacter,
   prohibitedWords,
+  currentIcMonth = "Julio",
+  currentIcYear = "2201",
+  currentIcDate = "Julio de 2201",
 }) => {
   const getNormTab = (t?: string): "profile" | "opinions" => {
     if (t === "opinions" || t === "comments" || t === "rumors") return "opinions";
@@ -87,19 +96,21 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
 
   const [activeTab, setActiveTab] = useState<"profile" | "opinions">(getNormTab(initialTab));
 
-  React.useEffect(() => {
-    if (open) {
-      setActiveTab(getNormTab(initialTab));
-    }
-  }, [open, initialTab]);
-
   // Comment form state
   const [commentName, setCommentName] = useState("");
   const [commentEmail, setCommentEmail] = useState("");
   const [commentText, setCommentText] = useState("");
+  const [commentIcDate, setCommentIcDate] = useState<string>(currentIcDate);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [commentSuccess, setCommentSuccess] = useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setActiveTab(getNormTab(initialTab));
+      setCommentIcDate(currentIcDate || "Julio de 2201");
+    }
+  }, [open, initialTab, currentIcDate]);
 
   if (!character) return null;
 
@@ -141,7 +152,8 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
         character.id,
         commentName.trim() || "Estudiante Anónimo",
         commentEmail.trim(),
-        commentText.trim()
+        commentText.trim(),
+        commentIcDate || currentIcDate || "Julio de 2201"
       );
       if (!res.success) {
         setCommentError(res.error || "No se pudo publicar el comentario.");
@@ -179,11 +191,9 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                 <Badge variant="classUa" className="text-xs">
                   {character.classCourse}
                 </Badge>
-                {character.age !== undefined && character.age !== null && String(character.age).trim() !== "" && (
-                  <Badge variant="manga" className="text-xs bg-white text-black">
-                    {character.age} años
-                  </Badge>
-                )}
+                <Badge variant="manga" className="text-xs bg-white text-black">
+                  {character.group || "Héroe / Celebridad"}
+                </Badge>
                 {character.quirk && (
                   <Badge variant="outline" className="bg-amber-100 text-amber-900 border-black font-bold text-xs">
                     ⚡ {character.quirk}
@@ -365,6 +375,13 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                   </div>
                 </div>
 
+                <IcDatePicker
+                  value={commentIcDate}
+                  onChange={setCommentIcDate}
+                  defaultMonth={currentIcMonth}
+                  defaultYear={currentIcYear}
+                />
+
                 <div>
                   <Label className="text-[11px] font-bold text-zinc-700">
                     Tu Opinión o Chisme
@@ -435,6 +452,7 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                       content: r.content,
                       reactions: r.reactions,
                       timestamp: r.timestamp,
+                      icDate: r.icDate,
                     })),
                     ...charComments.map((c) => ({
                       id: c.id,
@@ -443,6 +461,7 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                       content: c.content,
                       reactions: c.reactions,
                       timestamp: c.timestamp,
+                      icDate: c.icDate,
                     })),
                   ]
                     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
@@ -453,15 +472,17 @@ export const CharacterDetailDialog: React.FC<CharacterDetailDialogProps> = ({
                           item.type === "rumor" ? "bg-amber-50" : "bg-white"
                         }`}
                       >
-                        <div className="flex items-center justify-between text-xs text-zinc-500 font-bold mb-1.5 pb-1 border-b border-zinc-200">
+                        <div className="flex items-center justify-between text-xs text-zinc-500 font-bold mb-1.5 pb-1 border-b border-zinc-200 flex-wrap gap-2">
                           <span className="text-black font-black flex items-center gap-1.5">
                             {item.type === "rumor" ? "🔥" : "💬"} {item.authorName}
                             <span className="text-[10px] font-normal text-zinc-500 bg-zinc-100 px-1 py-0.2 rounded border border-zinc-200">
                               {item.type === "rumor" ? "Rumor" : "Comentario"}
                             </span>
                           </span>
-                          <div className="flex items-center gap-2">
-                            <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="bg-amber-100 text-amber-950 border border-amber-400 text-[10px] font-black px-1.5 py-0.5 rounded shadow-2xs">
+                              📅 {item.icDate || currentIcDate || "Julio de 2201"}
+                            </span>
                             {adminUser && item.type === "comment" && onDeleteComment && (
                               <button
                                 onClick={() => onDeleteComment(item.id)}

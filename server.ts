@@ -633,16 +633,20 @@ app.get("/api/admin/config-full", authenticateAdmin, (req: Request, res: Respons
 
 // CRUD de Personajes (Admin / SuperAdmin autenticado)
 app.post("/api/admin/characters", authenticateAdmin, (req: Request, res: Response) => {
-  const { id, name, alias, age, classCourse, quirk, avatarUrl, bio, rankings } = req.body;
+  const { id, name, alias, group, category, classCourse, quirk, avatarUrl, bio, rankings } = req.body;
   if (!name) {
     return res.status(400).json({ error: "El nombre del personaje es obligatorio." });
   }
+
+  const selectedGroup = group || "Aspirantes a Héroes";
+  const selectedCategory = category || (selectedGroup === "Héroes" || selectedGroup === "Celebridades" ? "hero" : "alumno");
 
   const newChar: Character = {
     id: id || `char-${Date.now()}`,
     name: name.trim(),
     alias: alias?.trim() || "",
-    age: age || 16,
+    group: selectedGroup,
+    category: selectedCategory,
     classCourse: classCourse?.trim() || "Clase 1-A (Heroísmo)",
     quirk: quirk?.trim() || "",
     avatarUrl: avatarUrl?.trim() || "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
