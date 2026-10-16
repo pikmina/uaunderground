@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Shield, Users, MessageSquare, Trophy, Lock, LogOut, Sparkles } from "lucide-react";
+import { Shield, Users, MessageSquare, Trophy, Lock, LogOut, Sparkles, Newspaper } from "lucide-react";
 import { AdminUser } from "../types";
 import { Link, useLocation } from "react-router-dom";
 
@@ -113,19 +113,17 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             </Link>
           </Button>
 
-          {adminUser && (
-            <Button
-              variant={currentPath.startsWith("/news") ? "heroDestructive" : "outline"}
-              size="sm"
-              asChild
-              className={`font-bold border-2 border-black ${!currentPath.startsWith("/news") ? "text-red-600 hover:text-red-700 hover:bg-red-50" : ""}`}
-            >
-              <Link to="/news">
-                <Shield className="w-4 h-4" />
-                <span>News</span>
-              </Link>
-            </Button>
-          )}
+          <Button
+            variant={currentPath.startsWith("/news") ? "hero" : "outline"}
+            size="sm"
+            asChild
+            className="font-bold border-2 border-black"
+          >
+            <Link to="/news">
+              <Newspaper className="w-4 h-4 text-red-600" />
+              <span>Noticias</span>
+            </Link>
+          </Button>
 
           <Button
             variant={currentPath.startsWith("/rankings") ? "hero" : "outline"}

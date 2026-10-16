@@ -38,6 +38,7 @@ import {
 import { TopNavbar } from "./components/TopNavbar";
 import { Gatekeeper } from "./components/Gatekeeper";
 import { CharacterCard } from "./components/CharacterCard";
+import { HeroicAdCard } from "./components/HeroicAdCard";
 import { CharacterDetailDialog } from "./components/CharacterDetailDialog";
 import { CreateRumorDialog } from "./components/CreateRumorDialog";
 import { AdminLoginDialog } from "./components/AdminLoginDialog";
@@ -1167,23 +1168,31 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {filteredAspirantes.map((char) => {
+                    {filteredAspirantes.map((char, index) => {
                       const charRumorsCount = rumors.filter((r) => r.characterId === char.id).length;
                       const charCommentsCount = comments.filter((c) => c.characterId === char.id).length;
+                      const showAdAfter = (index + 1) % 4 === 0;
+
                       return (
-                        <CharacterCard
-                          key={char.id}
-                          character={char}
-                          attributes={attributes}
-                          onSelect={openCharacterDetail}
-                          onDropRumor={openCreateRumorForChar}
-                          adminUser={adminUser}
-                          onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
-                          onDuplicate={handleDuplicateCharacter}
-                          onDelete={requestDeleteCharacterGlobal}
-                          commentCount={charCommentsCount}
-                          rumorCount={charRumorsCount}
-                        />
+                        <React.Fragment key={char.id}>
+                          <CharacterCard
+                            character={char}
+                            attributes={attributes}
+                            onSelect={openCharacterDetail}
+                            onDropRumor={openCreateRumorForChar}
+                            adminUser={adminUser}
+                            onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
+                            onDuplicate={handleDuplicateCharacter}
+                            onDelete={requestDeleteCharacterGlobal}
+                            commentCount={charCommentsCount}
+                            rumorCount={charRumorsCount}
+                          />
+                          {showAdAfter && (
+                            <div className="xl:col-span-2">
+                              <HeroicAdCard adIndex={Math.floor(index / 4)} />
+                            </div>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                   </div>
@@ -1278,23 +1287,31 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {filteredHeroes.map((hero) => {
+                    {filteredHeroes.map((hero, index) => {
                       const charRumorsCount = rumors.filter((r) => r.characterId === hero.id).length;
                       const charCommentsCount = comments.filter((c) => c.characterId === hero.id).length;
+                      const showAdAfter = (index + 1) % 4 === 0;
+
                       return (
-                        <CharacterCard
-                          key={hero.id}
-                          character={hero}
-                          attributes={attributes}
-                          onSelect={openCharacterDetail}
-                          onDropRumor={openCreateRumorForChar}
-                          adminUser={adminUser}
-                          onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
-                          onDuplicate={handleDuplicateCharacter}
-                          onDelete={requestDeleteCharacterGlobal}
-                          commentCount={charCommentsCount}
-                          rumorCount={charRumorsCount}
-                        />
+                        <React.Fragment key={hero.id}>
+                          <CharacterCard
+                            character={hero}
+                            attributes={attributes}
+                            onSelect={openCharacterDetail}
+                            onDropRumor={openCreateRumorForChar}
+                            adminUser={adminUser}
+                            onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
+                            onDuplicate={handleDuplicateCharacter}
+                            onDelete={requestDeleteCharacterGlobal}
+                            commentCount={charCommentsCount}
+                            rumorCount={charRumorsCount}
+                          />
+                          {showAdAfter && (
+                            <div className="xl:col-span-2">
+                              <HeroicAdCard adIndex={Math.floor(index / 4) + 1} />
+                            </div>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                   </div>
@@ -1389,23 +1406,31 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {filteredCelebridades.map((celeb) => {
+                    {filteredCelebridades.map((celeb, index) => {
                       const charRumorsCount = rumors.filter((r) => r.characterId === celeb.id).length;
                       const charCommentsCount = comments.filter((c) => c.characterId === celeb.id).length;
+                      const showAdAfter = (index + 1) % 4 === 0;
+
                       return (
-                        <CharacterCard
-                          key={celeb.id}
-                          character={celeb}
-                          attributes={attributes}
-                          onSelect={openCharacterDetail}
-                          onDropRumor={openCreateRumorForChar}
-                          adminUser={adminUser}
-                          onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
-                          onDuplicate={handleDuplicateCharacter}
-                          onDelete={requestDeleteCharacterGlobal}
-                          commentCount={charCommentsCount}
-                          rumorCount={charRumorsCount}
-                        />
+                        <React.Fragment key={celeb.id}>
+                          <CharacterCard
+                            character={celeb}
+                            attributes={attributes}
+                            onSelect={openCharacterDetail}
+                            onDropRumor={openCreateRumorForChar}
+                            adminUser={adminUser}
+                            onEdit={(c) => handleOpenEditCharacterInAdmin(c)}
+                            onDuplicate={handleDuplicateCharacter}
+                            onDelete={requestDeleteCharacterGlobal}
+                            commentCount={charCommentsCount}
+                            rumorCount={charRumorsCount}
+                          />
+                          {showAdAfter && (
+                            <div className="xl:col-span-2">
+                              <HeroicAdCard adIndex={Math.floor(index / 4) + 2} />
+                            </div>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                   </div>

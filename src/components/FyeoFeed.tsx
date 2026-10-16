@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FyeoPost, FyeoComment, EmojiReactionKey } from "../types";
 import { Shield, Clock, AlertTriangle, Plus, Edit2, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
+import { HeroicAdCard } from "./HeroicAdCard";
 
 interface FyeoFeedProps {
   posts: FyeoPost[];
@@ -72,6 +73,7 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
           <h2 className="text-2xl font-black uppercase tracking-widest mb-2">Acceso Restringido</h2>
           <p className="text-zinc-400 font-bold max-w-sm mx-auto">No hay registros clasificados disponibles en este momento. Mantén los ojos abiertos.</p>
         </div>
+        <HeroicAdCard adIndex={2} />
       </div>
     );
   }
@@ -81,8 +83,8 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
       <div className="bg-black text-red-500 border-4 border-red-600 rounded-xl p-6 text-center shadow-[6px_6px_0px_0px_rgba(220,38,38,1)] relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-red-600 animate-pulse"></div>
         <Shield className="w-10 h-10 mx-auto mb-2" />
-        <h1 className="text-3xl font-black uppercase tracking-[0.2em] mb-2">For Your Eyes Only</h1>
-        <p className="text-sm font-bold text-zinc-300">Registros y comunicados oficiales del cuerpo de moderación de UA Underground.</p>
+        <h1 className="text-3xl font-black uppercase tracking-[0.2em] mb-2">Noticias y Comunicados</h1>
+        <p className="text-sm font-bold text-zinc-300">Boletín Oficial e Informes de la Industria Heroica de Herosphere.</p>
       </div>
 
       {isAdmin && onCreatePost && (
@@ -95,11 +97,13 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
       )}
 
       <div className="space-y-8">
-        {posts.map((post) => {
+        {posts.map((post, index) => {
           const postComments = comments.filter(c => c.postId === post.id);
+          const showAdAfter = (index + 1) % 2 === 0;
           
           return (
-            <div key={post.id} className="bg-white border-4 border-black rounded-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] overflow-hidden flex flex-col">
+            <React.Fragment key={post.id}>
+              <div className="bg-white border-4 border-black rounded-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] overflow-hidden flex flex-col">
               {/* Header */}
               <div className="bg-zinc-100 border-b-4 border-black p-4 sm:p-6 flex flex-col gap-4 relative">
                 
@@ -262,7 +266,9 @@ export const FyeoFeed: React.FC<FyeoFeedProps> = ({
                   ))}
                 </div>
               )}
-            </div>
+              </div>
+              {showAdAfter && <HeroicAdCard adIndex={(index + 1) % 7} />}
+            </React.Fragment>
           );
         })}
       </div>
